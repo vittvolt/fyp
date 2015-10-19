@@ -2,6 +2,7 @@ package com.dji.FPVDemo;
 
 import java.util.Timer;
 import java.util.TimerTask;
+import dji.sdk.api.Camera.DJICameraSettingsTypeDef;
 import dji.sdk.api.DJIDrone;
 import dji.sdk.api.DJIError;
 import dji.sdk.api.Camera.DJICameraSettingsTypeDef.CameraCaptureMode;
@@ -92,11 +93,13 @@ public class FPVActivity extends DemoBaseActivity implements OnClickListener{
                                 Log.e(TAG, "onGetPermissionResult =" + result);
                                 Log.e(TAG,
                                         "onGetPermissionResultDescription=" + DJIError.getCheckPermissionErrorDescription(result));
+                                handler.sendMessage(handler.obtainMessage(SHOWDIALOG, DJIError.getCheckPermissionErrorDescription(result)));
                             } else {
                                 // show errors
                                 Log.e(TAG, "onGetPermissionResult =" + result);
                                 Log.e(TAG,
                                         "onGetPermissionResultDescription=" + DJIError.getCheckPermissionErrorDescription(result));
+                                handler.sendMessage(handler.obtainMessage(SHOWDIALOG, getString(R.string.demo_activation_error) + DJIError.getCheckPermissionErrorDescription(result) + "\n" + getString(R.string.demo_activation_error_code) + result));
                             }
                         }
                     });
@@ -109,6 +112,21 @@ public class FPVActivity extends DemoBaseActivity implements OnClickListener{
 
         onInitSDK(DroneCode);
         DJIDrone.connectToDrone();
+        // Try to initialize the camera to capture mode
+        DJIDrone.getDjiCamera().setCameraMode(CameraMode.Camera_Capture_Mode, new DJIExecuteResultCallback() {
+
+            @Override
+            public void onResult(DJIError mErr) {
+
+                String result = "errorCode =" + mErr.errorCode + "\n" + "errorDescription =" + DJIError.getErrorDescriptionByErrcode(mErr.errorCode);
+                if (mErr.errorCode != DJIError.RESULT_OK) {
+                    handler.sendMessage(handler.obtainMessage(SHOWDIALOG, result));
+                    // Show the error when setting fails
+                }
+
+            }
+
+        });
 
         mDjiGLSurfaceView = (DjiGLSurfaceView)findViewById(R.id.DjiSurfaceView_02);
         mDjiGLSurfaceView.start();
