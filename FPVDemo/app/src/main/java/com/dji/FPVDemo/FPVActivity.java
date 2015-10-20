@@ -2,6 +2,8 @@ package com.dji.FPVDemo;
 
 import java.util.Timer;
 import java.util.TimerTask;
+
+import dji.sdk.api.Camera.DJICameraDecodeTypeDef;
 import dji.sdk.api.Camera.DJICameraSettingsTypeDef;
 import dji.sdk.api.DJIDrone;
 import dji.sdk.api.DJIError;
@@ -40,6 +42,9 @@ public class FPVActivity extends DemoBaseActivity implements OnClickListener{
     private int TIME = 1000;
     private DjiGLSurfaceView mDjiGLSurfaceView;
     private DJIReceivedVideoDataCallBack mReceivedVideoDataCallBack = null;
+
+    boolean status = false;
+    private int tt = 1;
 
     private Handler handler = new Handler(new Handler.Callback() {
 
@@ -98,17 +103,19 @@ public class FPVActivity extends DemoBaseActivity implements OnClickListener{
                         @Override
                         public void onGetPermissionResult(int result) {
                             if (result == 0) {
+
                                 // show success
                                 Log.e(TAG, "onGetPermissionResult =" + result);
                                 Log.e(TAG,
                                         "onGetPermissionResultDescription=" + DJIError.getCheckPermissionErrorDescription(result));
-                                handler.sendMessage(handler.obtainMessage(SHOWDIALOG, DJIError.getCheckPermissionErrorDescription(result)));
+                                handler.sendMessage(handler.obtainMessage(SHOWTOAST, DJIError.getCheckPermissionErrorDescription(result)));
+                                status = true;
                             } else {
                                 // show errors
                                 Log.e(TAG, "onGetPermissionResult =" + result);
                                 Log.e(TAG,
                                         "onGetPermissionResultDescription=" + DJIError.getCheckPermissionErrorDescription(result));
-                                handler.sendMessage(handler.obtainMessage(SHOWDIALOG, getString(R.string.demo_activation_error) + DJIError.getCheckPermissionErrorDescription(result) + "\n" + getString(R.string.demo_activation_error_code) + result));
+                                handler.sendMessage(handler.obtainMessage(SHOWTOAST, getString(R.string.demo_activation_error) + DJIError.getCheckPermissionErrorDescription(result) + "\n" + getString(R.string.demo_activation_error_code) + result));
                             }
                         }
                     });
@@ -118,9 +125,12 @@ public class FPVActivity extends DemoBaseActivity implements OnClickListener{
                 }
             }
         }.start();
-
+        while (status == false){
+            tt=1-tt;
+        }
         onInitSDK(DroneCode);
         DJIDrone.connectToDrone();
+        //handler.sendMessage(handler.obtainMessage(SHOWDIALOG, "Haha!"));
         // Try to initialize the camera to capture mode
         DJIDrone.getDjiCamera().setCameraMode(CameraMode.Camera_Record_Mode, new DJIExecuteResultCallback() {
 
@@ -141,6 +151,8 @@ public class FPVActivity extends DemoBaseActivity implements OnClickListener{
         });
 
         mDjiGLSurfaceView = (DjiGLSurfaceView)findViewById(R.id.DjiSurfaceView_02);
+        //SDK V2.4 updated
+        DJIDrone.getDjiCamera().setDecodeType(DJICameraDecodeTypeDef.DecoderType.Software);
         mDjiGLSurfaceView.start();
 
         mReceivedVideoDataCallBack = new DJIReceivedVideoDataCallBack(){

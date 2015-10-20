@@ -33,7 +33,7 @@ public class DJIAoaActivity extends Activity {
         Intent aoaIntent = getIntent();
         if(aoaIntent != null) {
             String action = aoaIntent.getAction();
-            if (action== UsbManager.ACTION_USB_ACCESSORY_ATTACHED || action == Intent.ACTION_MAIN){
+            if (action == UsbManager.ACTION_USB_ACCESSORY_ATTACHED || action == Intent.ACTION_MAIN){
                 Intent attachedIntent = new Intent();
                 attachedIntent.setAction(DJIUsbAccessoryReceiver.ACTION_USB_ACCESSORY_ATTACHED);
                 sendBroadcast(attachedIntent);
