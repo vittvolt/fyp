@@ -20,6 +20,7 @@ import android.os.Message;
 import android.os.Process;
 import android.util.Log;
 import android.view.KeyEvent;
+import android.view.Menu;
 import android.view.View;
 import android.view.View.OnClickListener;
 import android.widget.Button;
@@ -75,6 +76,14 @@ public class FPVActivity extends DemoBaseActivity implements OnClickListener{
         }
     };
 
+    // Create menu
+    @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        super.onCreateOptionsMenu(menu);
+        getMenuInflater().inflate(R.menu.menu, menu);
+        return true;
+    }
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -113,7 +122,7 @@ public class FPVActivity extends DemoBaseActivity implements OnClickListener{
         onInitSDK(DroneCode);
         DJIDrone.connectToDrone();
         // Try to initialize the camera to capture mode
-        DJIDrone.getDjiCamera().setCameraMode(CameraMode.Camera_Capture_Mode, new DJIExecuteResultCallback() {
+        DJIDrone.getDjiCamera().setCameraMode(CameraMode.Camera_Record_Mode, new DJIExecuteResultCallback() {
 
             @Override
             public void onResult(DJIError mErr) {
@@ -122,6 +131,9 @@ public class FPVActivity extends DemoBaseActivity implements OnClickListener{
                 if (mErr.errorCode != DJIError.RESULT_OK) {
                     handler.sendMessage(handler.obtainMessage(SHOWDIALOG, result));
                     // Show the error when setting fails
+                }
+                else{
+                    handler.sendMessage(handler.obtainMessage(SHOWDIALOG, "Camera Init Success!"));
                 }
 
             }
