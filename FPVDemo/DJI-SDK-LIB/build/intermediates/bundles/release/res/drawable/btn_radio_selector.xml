@@ -5,4 +5,4 @@
     <item android:state_checked="false" android:drawable="@drawable/radio_unchecked"></item>
 
 </selector>
-<!-- From: file:/Users/wutianhe/Desktop/FYPTest/FPVDemo/DJI-SDK-LIB/res/drawable/btn_radio_selector.xml -->
+<!-- From: file:/home/ng/Desktop/fyp-group-working/FPVDemo/DJI-SDK-LIB/res/drawable/btn_radio_selector.xml -->

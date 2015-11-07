@@ -7,4 +7,4 @@
         android:fromYDelta="100%p"
         android:toYDelta="0" />
 
-</set><!-- From: file:/Users/wutianhe/Desktop/FYPTest/FPVDemo/DJI-SDK-LIB/res/anim/core_push_up_in.xml --><!-- From: file:/Users/wutianhe/Desktop/FYPTest/FPVDemo/DJI-SDK-LIB/build/intermediates/bundles/debug/res/anim/core_push_up_in.xml -->
+</set><!-- From: file:/home/ng/Desktop/fyp-group-working/FPVDemo/DJI-SDK-LIB/res/anim/core_push_up_in.xml --><!-- From: file:/home/ng/Desktop/fyp-group-working/FPVDemo/DJI-SDK-LIB/build/intermediates/bundles/debug/res/anim/core_push_up_in.xml -->

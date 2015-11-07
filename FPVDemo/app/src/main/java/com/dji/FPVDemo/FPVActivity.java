@@ -10,8 +10,10 @@ import dji.sdk.api.DJIError;
 import dji.sdk.api.Camera.DJICameraSettingsTypeDef.CameraCaptureMode;
 import dji.sdk.api.Camera.DJICameraSettingsTypeDef.CameraMode;
 import dji.sdk.api.DJIDroneTypeDef.DJIDroneType;
+import dji.sdk.api.GroundStation.DJIGroundStationTypeDef;
 import dji.sdk.interfaces.DJIExecuteResultCallback;
 import dji.sdk.interfaces.DJIGeneralListener;
+import dji.sdk.interfaces.DJIGroundStationExecuteCallBack;
 import dji.sdk.interfaces.DJIReceivedVideoDataCallBack;
 import dji.sdk.widget.DjiGLSurfaceView;
 import android.app.AlertDialog;
@@ -23,11 +25,14 @@ import android.os.Process;
 import android.util.Log;
 import android.view.KeyEvent;
 import android.view.Menu;
+import android.view.MotionEvent;
 import android.view.View;
 import android.view.View.OnClickListener;
 import android.widget.Button;
 import android.widget.TextView;
 import android.widget.Toast;
+import dji.sdk.api.GroundStation.DJIGroundStation;
+import dji.sdk.api.MainController.DJIMainController;
 
 public class FPVActivity extends DemoBaseActivity implements OnClickListener{
 
@@ -36,7 +41,7 @@ public class FPVActivity extends DemoBaseActivity implements OnClickListener{
     private final int SHOWDIALOG = 1;
     private final int SHOWTOAST = 2;
     private final int STOP_RECORDING = 10;
-    private Button captureAction, recordAction, captureMode;
+    private Button captureAction, recordAction, captureMode, TakeOff, Landing, Left;
     private TextView viewTimer;
     private int i = 0;
     private int TIME = 1000;
@@ -45,6 +50,8 @@ public class FPVActivity extends DemoBaseActivity implements OnClickListener{
 
     boolean status = false;
     private int tt = 1;
+
+    private boolean gndStation = false;
 
     private Handler handler = new Handler(new Handler.Callback() {
 
@@ -168,10 +175,51 @@ public class FPVActivity extends DemoBaseActivity implements OnClickListener{
         recordAction = (Button) findViewById(R.id.button2);
         captureMode = (Button) findViewById(R.id.button3);
 
+        //Set for the new buttons
+        TakeOff = (Button) findViewById(R.id.take_off);
+        Landing = (Button) findViewById(R.id.landing);
+
+        Left = (Button) findViewById(R.id.left);
+        Left.setOnTouchListener(new View.OnTouchListener() {
+            @Override
+            public boolean onTouch(View v, MotionEvent event) {
+                if(event.getAction() == MotionEvent.ACTION_DOWN){
+                    handler.sendMessage(handler.obtainMessage(SHOWTOAST, "Down!"));
+                }
+                if(event.getAction() == MotionEvent.ACTION_UP){
+                    handler.sendMessage(handler.obtainMessage(SHOWTOAST, "Up!"));
+                }
+                return false;
+            }
+        });
+
         captureAction.setOnClickListener(this);
         recordAction.setOnClickListener(this);
         captureMode.setOnClickListener(this);
+
+        TakeOff.setOnClickListener(this);
+        Landing.setOnClickListener(this);
+
+        // Setup the GroundStation
+        DJIDrone.getDjiGroundStation().openGroundStation(new DJIGroundStationExecuteCallBack() {
+            @Override
+            public void onResult(DJIGroundStationTypeDef.GroundStationResult result) {
+                // TODO Auto-generated method stub
+                String ResultsString = "return code =" + result.toString();
+                handler.sendMessage(handler.obtainMessage(SHOWTOAST, ResultsString));
+
+                if (result == DJIGroundStationTypeDef.GroundStationResult.GS_Result_Success) {
+                    gndStation = true;
+                    handler.sendMessage(handler.obtainMessage(SHOWTOAST, "GndStation Init Successful!"));
+                }
+                else{
+                    handler.sendMessage(handler.obtainMessage(SHOWTOAST,"GndStation Init Fail!"));
+                }
+            }
+        });
     }
+    //
+
 
     private void onInitSDK(int type){
         switch(type){
@@ -217,9 +265,50 @@ public class FPVActivity extends DemoBaseActivity implements OnClickListener{
                 stopRecord();
                 break;
             }
+            case R.id.take_off:{
+                TakeOff();
+                break;
+            }
+            case R.id.landing:{
+                Landing();
+                break;
+            }
             default:
                 break;
         }
+    }
+
+    //Take off function
+
+    private void TakeOff(){
+        DJIDrone.getDjiMainController().startTakeoff(new DJIExecuteResultCallback() {
+            @Override
+            public void onResult(DJIError djiError) {
+                String result = "errorCode =" + djiError.errorCode + "\n"+"errorDescription =" + DJIError.getErrorDescriptionByErrcode(djiError.errorCode);
+                if (djiError.errorCode == DJIError.RESULT_OK){
+                    handler.sendMessage(handler.obtainMessage(SHOWTOAST, "Take off successful!"));
+                }
+                else{
+                    handler.sendMessage(handler.obtainMessage(SHOWTOAST, result));
+                }
+            }
+        });
+    }
+
+    //Landing function
+    private void Landing(){
+        DJIDrone.getDjiMainController().startLanding(new DJIExecuteResultCallback(){
+            @Override
+            public void onResult(DJIError djiError) {
+                String result = "errorCode =" + djiError.errorCode + "\n"+"errorDescription =" + DJIError.getErrorDescriptionByErrcode(djiError.errorCode);
+                if (djiError.errorCode == DJIError.RESULT_OK){
+                    handler.sendMessage(handler.obtainMessage(SHOWTOAST, "Landing successful!"));
+                }
+                else{
+                    handler.sendMessage(handler.obtainMessage(SHOWTOAST, result));
+                }
+            }
+        });
     }
 
 

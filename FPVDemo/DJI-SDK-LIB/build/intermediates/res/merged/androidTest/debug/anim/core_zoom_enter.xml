@@ -7,4 +7,4 @@
            android:pivotX="50%p" android:pivotY="50%p"
            android:duration="500"
            />
-</set><!-- From: file:/Users/wutianhe/Desktop/FYPTest/FPVDemo/DJI-SDK-LIB/res/anim/core_zoom_enter.xml --><!-- From: file:/Users/wutianhe/Desktop/FYPTest/FPVDemo/DJI-SDK-LIB/build/intermediates/bundles/debug/res/anim/core_zoom_enter.xml -->
+</set><!-- From: file:/home/ng/Desktop/fyp-group-working/FPVDemo/DJI-SDK-LIB/res/anim/core_zoom_enter.xml --><!-- From: file:/home/ng/Desktop/fyp-group-working/FPVDemo/DJI-SDK-LIB/build/intermediates/bundles/debug/res/anim/core_zoom_enter.xml -->
