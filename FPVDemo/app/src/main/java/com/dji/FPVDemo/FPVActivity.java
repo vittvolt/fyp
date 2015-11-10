@@ -41,7 +41,7 @@ public class FPVActivity extends DemoBaseActivity implements OnClickListener{
     private final int SHOWDIALOG = 1;
     private final int SHOWTOAST = 2;
     private final int STOP_RECORDING = 10;
-    private Button captureAction, recordAction, captureMode, TakeOff, Landing, Left;
+    private Button captureAction, recordAction, captureMode, TakeOff, Landing, Left, openGndStation, Test;
     private TextView viewTimer;
     private int i = 0;
     private int TIME = 1000;
@@ -51,7 +51,9 @@ public class FPVActivity extends DemoBaseActivity implements OnClickListener{
     boolean status = false;
     private int tt = 1;
 
+    // New variables
     private boolean gndStation = false;
+    private boolean left_spin = false;
 
     private Handler handler = new Handler(new Handler.Callback() {
 
@@ -71,8 +73,9 @@ public class FPVActivity extends DemoBaseActivity implements OnClickListener{
         }
     });
 
+
     private Handler handlerTimer = new Handler();
-    Runnable runnable = new Runnable(){
+    /*Runnable runnable = new Runnable(){
         @Override
         public void run() {
             // handler自带方法实现定时器
@@ -86,7 +89,7 @@ public class FPVActivity extends DemoBaseActivity implements OnClickListener{
                 e.printStackTrace();
             }
         }
-    };
+    }; */
 
     // Create menu
     @Override
@@ -178,16 +181,33 @@ public class FPVActivity extends DemoBaseActivity implements OnClickListener{
         //Set for the new buttons
         TakeOff = (Button) findViewById(R.id.take_off);
         Landing = (Button) findViewById(R.id.landing);
+        openGndStation = (Button) findViewById(R.id.openGndStation);
+        Test = (Button) findViewById(R.id.test);
 
         Left = (Button) findViewById(R.id.left);
         Left.setOnTouchListener(new View.OnTouchListener() {
             @Override
             public boolean onTouch(View v, MotionEvent event) {
                 if(event.getAction() == MotionEvent.ACTION_DOWN){
-                    handler.sendMessage(handler.obtainMessage(SHOWTOAST, "Down!"));
+                    //handler.sendMessage(handler.obtainMessage(SHOWTOAST, "Down!"));
+                    left_spin = true;
+                    new Thread(){
+                        public void run(){
+                            DJIDrone.getDjiGroundStation().sendFlightControlData(20,0,0,0,new DJIExecuteResultCallback(){
+                                @Override
+                                public void onResult(DJIError djiError) {
+
+                                }
+                            });
+                            if(left_spin && gndStation){
+                                handlerTimer.postDelayed(this,20);
+                            }
+                        }
+                    }.start();
                 }
                 if(event.getAction() == MotionEvent.ACTION_UP){
-                    handler.sendMessage(handler.obtainMessage(SHOWTOAST, "Up!"));
+                    //handler.sendMessage(handler.obtainMessage(SHOWTOAST, "Up!"));
+                    left_spin = false;
                 }
                 return false;
             }
@@ -199,8 +219,11 @@ public class FPVActivity extends DemoBaseActivity implements OnClickListener{
 
         TakeOff.setOnClickListener(this);
         Landing.setOnClickListener(this);
+        openGndStation.setOnClickListener(this);
+        Test.setOnClickListener(this);
 
         // Setup the GroundStation
+        /*
         DJIDrone.getDjiGroundStation().openGroundStation(new DJIGroundStationExecuteCallBack() {
             @Override
             public void onResult(DJIGroundStationTypeDef.GroundStationResult result) {
@@ -216,10 +239,8 @@ public class FPVActivity extends DemoBaseActivity implements OnClickListener{
                     handler.sendMessage(handler.obtainMessage(SHOWTOAST,"GndStation Init Fail!"));
                 }
             }
-        });
+        }); */
     }
-    //
-
 
     private void onInitSDK(int type){
         switch(type){
@@ -273,9 +294,42 @@ public class FPVActivity extends DemoBaseActivity implements OnClickListener{
                 Landing();
                 break;
             }
+            case R.id.openGndStation:{
+                OpenGndStation();
+                break;
+            }
+            case R.id.test:{
+                left_spin = false;
+                break;
+            }
             default:
                 break;
         }
+    }
+
+    // Open GroundStation
+    private void OpenGndStation(){
+        DJIDrone.getDjiGroundStation().openGroundStation(new DJIGroundStationExecuteCallBack() {
+            @Override
+            public void onResult(DJIGroundStationTypeDef.GroundStationResult result) {
+                // TODO Auto-generated method stub
+                String ResultsString = "return code =" + result.toString();
+                handler.sendMessage(handler.obtainMessage(SHOWTOAST, ResultsString));
+
+                if (result == DJIGroundStationTypeDef.GroundStationResult.GS_Result_Success) {
+                    gndStation = true;
+                    handler.sendMessage(handler.obtainMessage(SHOWTOAST, "GndStation Init Successful!"));
+                    //Setup the mode
+                    DJIDrone.getDjiGroundStation().setHorizontalControlCoordinateSystem(DJIGroundStationTypeDef.DJINavigationFlightControlCoordinateSystem.Navigation_Flight_Control_Coordinate_System_Body);
+                    DJIDrone.getDjiGroundStation().setHorizontalControlMode(DJIGroundStationTypeDef.DJINavigationFlightControlHorizontalControlMode.Navigation_Flight_Control_Horizontal_Control_Angle);
+                    DJIDrone.getDjiGroundStation().setVerticalControlMode(DJIGroundStationTypeDef.DJINavigationFlightControlVerticalControlMode.Navigation_Flight_Control_Vertical_Control_Velocity);
+                    DJIDrone.getDjiGroundStation().setYawControlMode(DJIGroundStationTypeDef.DJINavigationFlightControlYawControlMode.Navigation_Flight_Control_Yaw_Control_Angle);
+                }
+                else{
+                    handler.sendMessage(handler.obtainMessage(SHOWTOAST,"GndStation Init Fail!"));
+                }
+            }
+        });
     }
 
     //Take off function

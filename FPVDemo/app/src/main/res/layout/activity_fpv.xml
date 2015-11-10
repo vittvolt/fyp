@@ -102,4 +102,27 @@
             android:textSize="12sp"
             android:layout_gravity="center_vertical" />
     </LinearLayout>
+    <LinearLayout
+        android:layout_width="wrap_content"
+        android:layout_height="match_parent"
+        android:layout_alignParentLeft="true"
+        android:layout_above="@+id/linearLayout2"
+        android:layout_below="@+id/linearLayout">
+        <Button
+        android:id="@+id/openGndStation"
+        android:layout_width="0dp"
+        android:layout_weight="1"
+        android:layout_height="wrap_content"
+        android:text="Open GndStation!"
+        android:textSize="12sp"
+        android:layout_gravity="center_vertical" />
+        <Button
+            android:id="@+id/test"
+            android:layout_width="0dp"
+            android:layout_weight="1"
+            android:layout_height="wrap_content"
+            android:text="Stop!"
+            android:textSize="12sp"
+            android:layout_gravity="center_vertical" />
+    </LinearLayout>
 </RelativeLayout>

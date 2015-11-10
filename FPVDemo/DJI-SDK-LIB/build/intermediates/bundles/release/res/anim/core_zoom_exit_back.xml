@@ -7,4 +7,4 @@
            android:fromYScale="1.0" android:toYScale="2.0"
            android:pivotX="50%p" android:pivotY="50%p"
            android:duration="100" />
-</set><!-- From: file:/home/ng/Desktop/fyp-group-working/FPVDemo/DJI-SDK-LIB/res/anim/core_zoom_exit_back.xml -->
+</set><!-- From: file:/Users/wutianhe/Desktop/FYPTest/FPVDemo/DJI-SDK-LIB/res/anim/core_zoom_exit_back.xml -->
