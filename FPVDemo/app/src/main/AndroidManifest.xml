@@ -44,9 +44,9 @@
                 android:name="android.hardware.usb.action.USB_ACCESSORY_ATTACHED"
                 android:resource="@xml/accessory_filter" />
         </activity>
-        <activity android:name=".FPVActivity" >
+        <activity android:name=".FPVActivity" android:configChanges="keyboardHidden|orientation|screenSize">
         </activity>
-        <activity android:name=".DemoBaseActivity" >
+        <activity android:name=".DemoBaseActivity" android:configChanges="keyboardHidden|orientation|screenSize">
         </activity>
     </application>
 

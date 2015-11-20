@@ -196,11 +196,14 @@ public class FPVActivity extends DemoBaseActivity implements OnClickListener{
                             DJIDrone.getDjiGroundStation().sendFlightControlData(20,0,0,0,new DJIExecuteResultCallback(){
                                 @Override
                                 public void onResult(DJIError djiError) {
-
+                                    if (djiError.errorCode != DJIError.RESULT_OK && djiError.errorCode != DJIError.RESULT_SUCCEED) {
+                                        String result = "errorCode =" + djiError.errorCode + "\n" + "errorDescription =" + DJIError.getErrorDescriptionByErrcode(djiError.errorCode);
+                                        handler.sendMessage(handler.obtainMessage(SHOWTOAST, result));
+                                    }
                                 }
                             });
                             if(left_spin && gndStation){
-                                handlerTimer.postDelayed(this,20);
+                                handlerTimer.postDelayed(this,1000);
                             }
                         }
                     }.start();
