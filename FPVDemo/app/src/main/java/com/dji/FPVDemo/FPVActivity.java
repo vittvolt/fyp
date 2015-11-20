@@ -2,6 +2,10 @@ package com.dji.FPVDemo;
 
 import java.util.Timer;
 import java.util.TimerTask;
+import java.io.File;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.io.OutputStreamWriter;
 
 import dji.sdk.api.Camera.DJICameraDecodeTypeDef;
 import dji.sdk.api.Camera.DJICameraSettingsTypeDef;
@@ -17,8 +21,10 @@ import dji.sdk.interfaces.DJIGroundStationExecuteCallBack;
 import dji.sdk.interfaces.DJIReceivedVideoDataCallBack;
 import dji.sdk.widget.DjiGLSurfaceView;
 import android.app.AlertDialog;
+import android.content.Context;
 import android.content.DialogInterface;
 import android.os.Bundle;
+import android.os.Environment;
 import android.os.Handler;
 import android.os.Message;
 import android.os.Process;
@@ -33,6 +39,7 @@ import android.widget.TextView;
 import android.widget.Toast;
 import dji.sdk.api.GroundStation.DJIGroundStation;
 import dji.sdk.api.MainController.DJIMainController;
+import android.content.Context;
 
 public class FPVActivity extends DemoBaseActivity implements OnClickListener{
 
@@ -54,6 +61,41 @@ public class FPVActivity extends DemoBaseActivity implements OnClickListener{
     // New variables
     private boolean gndStation = false;
     private boolean left_spin = false;
+    private int test = 0;
+    private int test01 = 0;
+    private String tests = "";
+
+    //Convert the bytes to a string
+    final protected static char[] hexArray = "0123456789ABCDEF".toCharArray();
+    public static String bytesToHex(byte[] bytes) {
+        char[] hexChars = new char[bytes.length * 2];
+        for ( int j = 0; j < bytes.length; j++ ) {
+            int v = bytes[j] & 0xFF;
+            hexChars[j * 2] = hexArray[v >>> 4];
+            hexChars[j * 2 + 1] = hexArray[v & 0x0F];
+        }
+        return new String(hexChars);
+    }
+
+    // Write to file
+    public void generateNoteOnSD(String sFileName, String sBody){
+        try
+        {
+            File root = new File(Environment.getExternalStorageDirectory(), "Notes");
+            if (!root.exists()) {
+                root.mkdirs();
+            }
+            File gpxfile = new File(root, sFileName);
+            FileWriter writer = new FileWriter(gpxfile, true);
+            writer.append(sBody);
+            writer.flush();
+            writer.close();
+            handler.sendMessage(handler.obtainMessage(SHOWTOAST, "Saved!"));
+        } catch(IOException e)
+        {
+            e.printStackTrace();
+        }
+    }
 
     private Handler handler = new Handler(new Handler.Callback() {
 
@@ -151,8 +193,7 @@ public class FPVActivity extends DemoBaseActivity implements OnClickListener{
                 if (mErr.errorCode != DJIError.RESULT_OK) {
                     handler.sendMessage(handler.obtainMessage(SHOWDIALOG, result));
                     // Show the error when setting fails
-                }
-                else{
+                } else {
                     handler.sendMessage(handler.obtainMessage(SHOWDIALOG, "Camera Init Success!"));
                 }
 
@@ -169,6 +210,18 @@ public class FPVActivity extends DemoBaseActivity implements OnClickListener{
             @Override
             public void onResult(byte[] videoBuffer, int size){
                 mDjiGLSurfaceView.setDataToDecoder(videoBuffer, size);
+                if (test01 < 5) {
+                    if (test == 500) {
+                        test01++;
+                        test = 0;
+                        tests = bytesToHex(videoBuffer);
+                        tests = "Bytes: \n" + tests + "\n";
+                        handler.sendMessage(handler.obtainMessage(SHOWTOAST, tests));
+                        generateNoteOnSD("NALs.txt", tests);
+                    } else {
+                        test++;
+                    }
+                }
             }
         };
         DJIDrone.getDjiCamera().setReceivedVideoDataCallBack(mReceivedVideoDataCallBack);
@@ -188,12 +241,12 @@ public class FPVActivity extends DemoBaseActivity implements OnClickListener{
         Left.setOnTouchListener(new View.OnTouchListener() {
             @Override
             public boolean onTouch(View v, MotionEvent event) {
-                if(event.getAction() == MotionEvent.ACTION_DOWN){
+                if (event.getAction() == MotionEvent.ACTION_DOWN) {
                     //handler.sendMessage(handler.obtainMessage(SHOWTOAST, "Down!"));
                     left_spin = true;
-                    new Thread(){
-                        public void run(){
-                            DJIDrone.getDjiGroundStation().sendFlightControlData(20,0,0,0,new DJIExecuteResultCallback(){
+                    new Thread() {
+                        public void run() {
+                            DJIDrone.getDjiGroundStation().sendFlightControlData(20, 0, 0, 0, new DJIExecuteResultCallback() {
                                 @Override
                                 public void onResult(DJIError djiError) {
                                     if (djiError.errorCode != DJIError.RESULT_OK && djiError.errorCode != DJIError.RESULT_SUCCEED) {
@@ -202,13 +255,13 @@ public class FPVActivity extends DemoBaseActivity implements OnClickListener{
                                     }
                                 }
                             });
-                            if(left_spin && gndStation){
-                                handlerTimer.postDelayed(this,1000);
+                            if (left_spin && gndStation) {
+                                handlerTimer.postDelayed(this, 1000);
                             }
                         }
                     }.start();
                 }
-                if(event.getAction() == MotionEvent.ACTION_UP){
+                if (event.getAction() == MotionEvent.ACTION_UP) {
                     //handler.sendMessage(handler.obtainMessage(SHOWTOAST, "Up!"));
                     left_spin = false;
                 }
@@ -225,24 +278,8 @@ public class FPVActivity extends DemoBaseActivity implements OnClickListener{
         openGndStation.setOnClickListener(this);
         Test.setOnClickListener(this);
 
-        // Setup the GroundStation
-        /*
-        DJIDrone.getDjiGroundStation().openGroundStation(new DJIGroundStationExecuteCallBack() {
-            @Override
-            public void onResult(DJIGroundStationTypeDef.GroundStationResult result) {
-                // TODO Auto-generated method stub
-                String ResultsString = "return code =" + result.toString();
-                handler.sendMessage(handler.obtainMessage(SHOWTOAST, ResultsString));
-
-                if (result == DJIGroundStationTypeDef.GroundStationResult.GS_Result_Success) {
-                    gndStation = true;
-                    handler.sendMessage(handler.obtainMessage(SHOWTOAST, "GndStation Init Successful!"));
-                }
-                else{
-                    handler.sendMessage(handler.obtainMessage(SHOWTOAST,"GndStation Init Fail!"));
-                }
-            }
-        }); */
+        /*tests = Environment.getExternalStorageState();
+        handler.sendMessage(handler.obtainMessage(SHOWTOAST, tests)); */
     }
 
     private void onInitSDK(int type){
