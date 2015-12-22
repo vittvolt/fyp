@@ -48,7 +48,7 @@ import dji.sdk.api.GroundStation.DJIGroundStation;
 import dji.sdk.api.MainController.DJIMainController;
 import android.content.Context;
 
-public class FPVActivity extends DemoBaseActivity implements OnClickListener{
+public class FPVActivity extends DemoBaseActivity implements OnClickListener, SurfaceHolder.Callback{
 
     private static final String TAG = "FPVActivity";
     private int DroneCode;
@@ -231,71 +231,7 @@ public class FPVActivity extends DemoBaseActivity implements OnClickListener{
         DJIDrone.getDjiCamera().setDecodeType(DJICameraDecodeTypeDef.DecoderType.Software);
         //mDjiGLSurfaceView.start();
 
-        /*if (mDjiGLSurfaceView.getHolder().getSurface().isValid() == false){
-            Log.e(TAG, "Surface not valid!!!!!!!!!!!!!!!!!!!!!");
-        }
-        else
-            Log.e(TAG, "Surface valid!!!!!!!!!!!!!!!!!!!!!");  */
-
-        //Decoder Initialization
-        int width = 640;
-        int height = 480;
-        String videoFormat = "video/avc";
-        MediaFormat format = MediaFormat.createVideoFormat(videoFormat, width, height);
-        format.setString("KEY_MIME", videoFormat);
-
-        final MediaCodec mCodec;
-        try
-        {
-            mCodec = MediaCodec.createDecoderByType(videoFormat);
-            mCodec.configure(format, mSurface, null, 0 );
-
-            mCodec.start();
-            mReceivedVideoDataCallBack = new DJIReceivedVideoDataCallBack(){
-                private int packetLength = 0;
-                private ByteBuffer accessUnitBuffer = ByteBuffer.allocate(50000);
-                int inIndex;
-                int presentationTime = 0;
-
-                @Override
-                public void onResult(byte[] videoBuffer, int size){
-                    ArrayList<byte []> NAL_Units = splitNALunits(videoBuffer );
-                    for( int i=0; i< NAL_Units.size(); i++ ) {
-                        // Send off the current buffer of data (Access Unit)
-                        inIndex = mCodec.dequeueInputBuffer( 0 );
-                        if( inIndex >= 0 ) {
-                            ByteBuffer inputBuffer = mCodec.getInputBuffer(inIndex);
-                            inputBuffer.put( accessUnitBuffer.array(), 0, packetLength );
-                            mCodec.queueInputBuffer( inIndex,  0,  packetLength,  presentationTime, 0 );
-                            presentationTime += 100;
-                            packetLength = 0;
-                            accessUnitBuffer.clear();
-                            accessUnitBuffer.rewind();
-                        }
-                        accessUnitBuffer.put( NAL_Units.get(i));
-                        packetLength += NAL_Units.get(i).length;
-                    }
-                /*mDjiGLSurfaceView.setDataToDecoder(videoBuffer, size);
-                if (test01 < 5) {
-                    if (test == 500) {
-                        test01++;
-                        test = 0;
-                        tests = bytesToHex(videoBuffer);
-                        tests = "Bytes: \n" + tests + "\n";
-                        handler.sendMessage(handler.obtainMessage(SHOWTOAST, tests));
-                        generateNoteOnSD("NALs.txt", tests);
-                    } else {
-                        test++;
-                    }
-                } */
-                }
-            };
-            DJIDrone.getDjiCamera().setReceivedVideoDataCallBack(mReceivedVideoDataCallBack);
-        }
-        catch(IOException e)
-        {
-            e.printStackTrace();
-        }
+        mDjiGLSurfaceView.getHolder().addCallback(this);
 
         viewTimer = (TextView) findViewById(R.id.timer);
         captureAction = (Button) findViewById(R.id.button1);
@@ -462,14 +398,13 @@ public class FPVActivity extends DemoBaseActivity implements OnClickListener{
 
     //Landing function
     private void Landing(){
-        DJIDrone.getDjiMainController().startLanding(new DJIExecuteResultCallback(){
+        DJIDrone.getDjiMainController().startLanding(new DJIExecuteResultCallback() {
             @Override
             public void onResult(DJIError djiError) {
-                String result = "errorCode =" + djiError.errorCode + "\n"+"errorDescription =" + DJIError.getErrorDescriptionByErrcode(djiError.errorCode);
-                if (djiError.errorCode == DJIError.RESULT_OK){
+                String result = "errorCode =" + djiError.errorCode + "\n" + "errorDescription =" + DJIError.getErrorDescriptionByErrcode(djiError.errorCode);
+                if (djiError.errorCode == DJIError.RESULT_OK) {
                     handler.sendMessage(handler.obtainMessage(SHOWTOAST, "Landing successful!"));
-                }
-                else{
+                } else {
                     handler.sendMessage(handler.obtainMessage(SHOWTOAST, result));
                 }
             }
@@ -482,25 +417,23 @@ public class FPVActivity extends DemoBaseActivity implements OnClickListener{
         CameraMode cameraMode = CameraMode.Camera_Capture_Mode;
         // Set the cameraMode as Camera_Capture_Mode. All the available modes can be seen in
         // DJICameraSettingsTypeDef.java
-        DJIDrone.getDjiCamera().setCameraMode(cameraMode, new DJIExecuteResultCallback(){
+        DJIDrone.getDjiCamera().setCameraMode(cameraMode, new DJIExecuteResultCallback() {
 
             @Override
-            public void onResult(DJIError mErr)
-            {
+            public void onResult(DJIError mErr) {
 
-                String result = "errorCode =" + mErr.errorCode + "\n"+"errorDescription =" + DJIError.getErrorDescriptionByErrcode(mErr.errorCode);
+                String result = "errorCode =" + mErr.errorCode + "\n" + "errorDescription =" + DJIError.getErrorDescriptionByErrcode(mErr.errorCode);
                 if (mErr.errorCode == DJIError.RESULT_OK) {
                     CameraCaptureMode photoMode = CameraCaptureMode.Camera_Single_Capture;
                     // Set the camera capture mode as Camera_Single_Capture. All the available modes
                     // can be seen in DJICameraSettingsTypeDef.java
 
-                    DJIDrone.getDjiCamera().startTakePhoto(photoMode, new DJIExecuteResultCallback(){
+                    DJIDrone.getDjiCamera().startTakePhoto(photoMode, new DJIExecuteResultCallback() {
 
                         @Override
-                        public void onResult(DJIError mErr)
-                        {
+                        public void onResult(DJIError mErr) {
 
-                            String result = "errorCode =" + mErr.errorCode + "\n"+"errorDescription =" + DJIError.getErrorDescriptionByErrcode(mErr.errorCode);
+                            String result = "errorCode =" + mErr.errorCode + "\n" + "errorDescription =" + DJIError.getErrorDescriptionByErrcode(mErr.errorCode);
                             handler.sendMessage(handler.obtainMessage(SHOWTOAST, result));  // display the returned message in the callback
                         }
 
@@ -610,5 +543,80 @@ public class FPVActivity extends DemoBaseActivity implements OnClickListener{
         mDjiGLSurfaceView.destroy();
         super.onDestroy();
         Process.killProcess(Process.myPid());
+    }
+
+    //Implement the SurfaceHolder Callback
+    public void surfaceCreated(SurfaceHolder holder){
+        Log.e(TAG, "Surface Created!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
+
+        //Decoder Initialization
+        int width = 640;
+        int height = 480;
+        String videoFormat = "video/avc";
+        MediaFormat format = MediaFormat.createVideoFormat(videoFormat, width, height);
+        format.setString("KEY_MIME", videoFormat);
+        final MediaCodec mCodec;
+        try
+        {
+            mCodec = MediaCodec.createDecoderByType(videoFormat);
+            mCodec.configure(format, mDjiGLSurfaceView.getHolder().getSurface(), null, 0 );
+
+            mCodec.start();
+            mReceivedVideoDataCallBack = new DJIReceivedVideoDataCallBack(){
+                private int packetLength = 0;
+                private ByteBuffer accessUnitBuffer = ByteBuffer.allocate(50000);
+                int inIndex;
+                int presentationTime = 0;
+
+                @Override
+                public void onResult(byte[] videoBuffer, int size){
+                    ArrayList<byte []> NAL_Units = splitNALunits(videoBuffer );
+                    for( int i=0; i< NAL_Units.size(); i++ ) {
+                        // Send off the current buffer of data (Access Unit)
+                        inIndex = mCodec.dequeueInputBuffer( 0 );
+                        if( inIndex >= 0 ) {
+                            ByteBuffer inputBuffer = mCodec.getInputBuffer(inIndex);
+                            inputBuffer.put( accessUnitBuffer.array(), 0, packetLength );
+                            mCodec.queueInputBuffer( inIndex,  0,  packetLength,  presentationTime, 0 );
+                            presentationTime += 100;
+                            packetLength = 0;
+                            accessUnitBuffer.clear();
+                            accessUnitBuffer.rewind();
+                        }
+                        accessUnitBuffer.put( NAL_Units.get(i));
+                        packetLength += NAL_Units.get(i).length;
+                    }
+                /*mDjiGLSurfaceView.setDataToDecoder(videoBuffer, size);
+                if (test01 < 5) {
+                    if (test == 500) {
+                        test01++;
+                        test = 0;
+                        tests = bytesToHex(videoBuffer);
+                        tests = "Bytes: \n" + tests + "\n";
+                        handler.sendMessage(handler.obtainMessage(SHOWTOAST, tests));
+                        generateNoteOnSD("NALs.txt", tests);
+                    } else {
+                        test++;
+                    }
+                } */
+                }
+            };
+            DJIDrone.getDjiCamera().setReceivedVideoDataCallBack(mReceivedVideoDataCallBack);
+        }
+        catch(IOException e)
+        {
+            e.printStackTrace();
+        }
+    }
+
+    public void surfaceChanged(SurfaceHolder holder, int format, int w, int h){
+
+    }
+
+    public void surfaceDestroyed(SurfaceHolder holder){
+        if (DJIDrone.getDjiCamera() != null) {
+            DJIDrone.getDjiCamera().setReceivedVideoDataCallBack(null);
+        }
+        mDjiGLSurfaceView.destroy();
     }
 }

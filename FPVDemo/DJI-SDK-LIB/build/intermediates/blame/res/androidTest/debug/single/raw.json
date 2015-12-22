@@ -32,11 +32,11 @@
         "source": "C:\\Users\\TH WU\\Desktop\\FYPProject\\fyp-group-working\\FPVDemo\\DJI-SDK-LIB\\build\\intermediates\\bundles\\debug\\res\\raw\\dark_1080p30.264"
     },
     {
-        "merged": "C:\\Users\\TH WU\\Desktop\\FYPProject\\fyp-group-working\\FPVDemo\\DJI-SDK-LIB\\build\\intermediates\\res\\merged\\androidTest\\debug\\raw\\iframe_1280_ins.h264",
-        "source": "C:\\Users\\TH WU\\Desktop\\FYPProject\\fyp-group-working\\FPVDemo\\DJI-SDK-LIB\\build\\intermediates\\bundles\\debug\\res\\raw\\iframe_1280_ins.h264"
-    },
-    {
         "merged": "C:\\Users\\TH WU\\Desktop\\FYPProject\\fyp-group-working\\FPVDemo\\DJI-SDK-LIB\\build\\intermediates\\res\\merged\\androidTest\\debug\\raw\\iframe_960_3s.h264",
         "source": "C:\\Users\\TH WU\\Desktop\\FYPProject\\fyp-group-working\\FPVDemo\\DJI-SDK-LIB\\build\\intermediates\\bundles\\debug\\res\\raw\\iframe_960_3s.h264"
+    },
+    {
+        "merged": "C:\\Users\\TH WU\\Desktop\\FYPProject\\fyp-group-working\\FPVDemo\\DJI-SDK-LIB\\build\\intermediates\\res\\merged\\androidTest\\debug\\raw\\iframe_1280_ins.h264",
+        "source": "C:\\Users\\TH WU\\Desktop\\FYPProject\\fyp-group-working\\FPVDemo\\DJI-SDK-LIB\\build\\intermediates\\bundles\\debug\\res\\raw\\iframe_1280_ins.h264"
     }
 ]
