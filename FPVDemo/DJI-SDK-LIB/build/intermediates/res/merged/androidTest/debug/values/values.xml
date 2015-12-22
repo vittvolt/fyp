@@ -1,7 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- From: file:/Users/wutianhe/Desktop/FYPTest/FPVDemo/DJI-SDK-LIB/build/intermediates/bundles/debug/res/values/values.xml -->
-    <eat-comment/>
     <color name="midware_white_half">#77ffffff</color>
     <declare-styleable name="DJITextView"><attr name="djiTextFace"><enum name="demi" value="0"/><enum name="nlight" value="1"/><enum name="nbold" value="2"/><enum name="bold" value="3"/></attr></declare-styleable>
     <string name="DESCRIPTION_RESULT_OK">OK</string>

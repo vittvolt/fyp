@@ -2,4 +2,4 @@
 
 <resources>
     <usb-accessory model="T600" manufacturer="DJI"/>
-</resources><!-- From: file:/Users/wutianhe/Desktop/FYPTest/FPVDemo/DJI-SDK-LIB/res/xml/accessory_filter.xml --><!-- From: file:/Users/wutianhe/Desktop/FYPTest/FPVDemo/DJI-SDK-LIB/build/intermediates/bundles/debug/res/xml/accessory_filter.xml -->
+</resources>

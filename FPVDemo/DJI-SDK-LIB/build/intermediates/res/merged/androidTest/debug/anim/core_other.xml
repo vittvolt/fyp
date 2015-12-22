@@ -30,4 +30,4 @@
             android:pivotY="50%"  
             android:duration="400" />  
     </set>  
-</set> <!-- From: file:/Users/wutianhe/Desktop/FYPTest/FPVDemo/DJI-SDK-LIB/res/anim/core_other.xml --><!-- From: file:/Users/wutianhe/Desktop/FYPTest/FPVDemo/DJI-SDK-LIB/build/intermediates/bundles/debug/res/anim/core_other.xml -->
+</set> 

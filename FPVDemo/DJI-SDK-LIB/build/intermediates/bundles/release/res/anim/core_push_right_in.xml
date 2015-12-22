@@ -7,4 +7,4 @@
         android:fromXDelta="-100%p"
         android:toXDelta="0" />
     
-</set><!-- From: file:/Users/wutianhe/Desktop/FYPTest/FPVDemo/DJI-SDK-LIB/res/anim/core_push_right_in.xml -->
+</set>

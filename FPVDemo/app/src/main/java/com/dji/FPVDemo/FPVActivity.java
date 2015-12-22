@@ -1,5 +1,8 @@
 package com.dji.FPVDemo;
 
+import java.nio.ByteBuffer;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Timer;
 import java.util.TimerTask;
 import java.io.File;
@@ -23,6 +26,8 @@ import dji.sdk.widget.DjiGLSurfaceView;
 import android.app.AlertDialog;
 import android.content.Context;
 import android.content.DialogInterface;
+import android.media.MediaCodec;
+import android.media.MediaFormat;
 import android.os.Bundle;
 import android.os.Environment;
 import android.os.Handler;
@@ -32,6 +37,8 @@ import android.util.Log;
 import android.view.KeyEvent;
 import android.view.Menu;
 import android.view.MotionEvent;
+import android.view.Surface;
+import android.view.SurfaceHolder;
 import android.view.View;
 import android.view.View.OnClickListener;
 import android.widget.Button;
@@ -64,6 +71,24 @@ public class FPVActivity extends DemoBaseActivity implements OnClickListener{
     private int test = 0;
     private int test01 = 0;
     private String tests = "";
+    private Surface mSurface;
+    private SurfaceHolder mSurfaceHolder;
+
+    //Split the NAL units
+    protected ArrayList<byte []> splitNALunits(byte[] vBuffer){
+        ArrayList<byte []> NAL_units = new ArrayList<>();
+        int start=0;
+        for (int i=0;i<vBuffer.length;i++){
+            if (vBuffer[i] == 0x00 && vBuffer[i+1] == 0x00 && vBuffer[i+2] == 0x01 && vBuffer[i+3] == 0x09){
+                if (start != 0)
+                    NAL_units.add(Arrays.copyOfRange(vBuffer, start, i - 1));
+                start=i+4;
+            }
+            if (i == vBuffer.length-1)
+                NAL_units.add(Arrays.copyOfRange(vBuffer, start, i));
+        }
+        return NAL_units;
+    }
 
     //Convert the bytes to a string
     final protected static char[] hexArray = "0123456789ABCDEF".toCharArray();
@@ -204,12 +229,53 @@ public class FPVActivity extends DemoBaseActivity implements OnClickListener{
         mDjiGLSurfaceView = (DjiGLSurfaceView)findViewById(R.id.DjiSurfaceView_02);
         //SDK V2.4 updated
         DJIDrone.getDjiCamera().setDecodeType(DJICameraDecodeTypeDef.DecoderType.Software);
-        mDjiGLSurfaceView.start();
+        //mDjiGLSurfaceView.start();
 
-        mReceivedVideoDataCallBack = new DJIReceivedVideoDataCallBack(){
-            @Override
-            public void onResult(byte[] videoBuffer, int size){
-                mDjiGLSurfaceView.setDataToDecoder(videoBuffer, size);
+        /*if (mDjiGLSurfaceView.getHolder().getSurface().isValid() == false){
+            Log.e(TAG, "Surface not valid!!!!!!!!!!!!!!!!!!!!!");
+        }
+        else
+            Log.e(TAG, "Surface valid!!!!!!!!!!!!!!!!!!!!!");  */
+
+        //Decoder Initialization
+        int width = 640;
+        int height = 480;
+        String videoFormat = "video/avc";
+        MediaFormat format = MediaFormat.createVideoFormat(videoFormat, width, height);
+        format.setString("KEY_MIME", videoFormat);
+
+        final MediaCodec mCodec;
+        try
+        {
+            mCodec = MediaCodec.createDecoderByType(videoFormat);
+            mCodec.configure(format, mSurface, null, 0 );
+
+            mCodec.start();
+            mReceivedVideoDataCallBack = new DJIReceivedVideoDataCallBack(){
+                private int packetLength = 0;
+                private ByteBuffer accessUnitBuffer = ByteBuffer.allocate(50000);
+                int inIndex;
+                int presentationTime = 0;
+
+                @Override
+                public void onResult(byte[] videoBuffer, int size){
+                    ArrayList<byte []> NAL_Units = splitNALunits(videoBuffer );
+                    for( int i=0; i< NAL_Units.size(); i++ ) {
+                        // Send off the current buffer of data (Access Unit)
+                        inIndex = mCodec.dequeueInputBuffer( 0 );
+                        if( inIndex >= 0 ) {
+                            ByteBuffer inputBuffer = mCodec.getInputBuffer(inIndex);
+                            inputBuffer.put( accessUnitBuffer.array(), 0, packetLength );
+                            mCodec.queueInputBuffer( inIndex,  0,  packetLength,  presentationTime, 0 );
+                            presentationTime += 100;
+                            packetLength = 0;
+                            accessUnitBuffer.clear();
+                            accessUnitBuffer.rewind();
+                        }
+                        accessUnitBuffer.put( NAL_Units.get(i));
+                        packetLength += NAL_Units.get(i).length;
+                    }
+                /*mDjiGLSurfaceView.setDataToDecoder(videoBuffer, size);
                 if (test01 < 5) {
                     if (test == 500) {
                         test01++;
@@ -221,10 +287,15 @@ public class FPVActivity extends DemoBaseActivity implements OnClickListener{
                     } else {
                         test++;
                     }
+                } */
                 }
-            }
-        };
-        DJIDrone.getDjiCamera().setReceivedVideoDataCallBack(mReceivedVideoDataCallBack);
+            };
+            DJIDrone.getDjiCamera().setReceivedVideoDataCallBack(mReceivedVideoDataCallBack);
+        }
+        catch(IOException e)
+        {
+            e.printStackTrace();
+        }
 
         viewTimer = (TextView) findViewById(R.id.timer);
         captureAction = (Button) findViewById(R.id.button1);
