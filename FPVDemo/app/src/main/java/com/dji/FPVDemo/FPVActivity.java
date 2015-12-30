@@ -73,6 +73,13 @@ public class FPVActivity extends DemoBaseActivity implements OnClickListener, Su
     private String tests = "";
     private Surface mSurface;
     private SurfaceHolder mSurfaceHolder;
+    private boolean SurfaceValid = false;
+    //Decoder Initialization
+    private int width = 640;
+    private int height = 480;
+    private String videoFormat = "video/avc";
+    private MediaFormat format = MediaFormat.createVideoFormat(videoFormat, width, height);
+    private MediaCodec mCodec;
 
     //Split the NAL units
     protected ArrayList<byte []> splitNALunits(byte[] vBuffer){
@@ -371,9 +378,8 @@ public class FPVActivity extends DemoBaseActivity implements OnClickListener, Su
                     DJIDrone.getDjiGroundStation().setHorizontalControlMode(DJIGroundStationTypeDef.DJINavigationFlightControlHorizontalControlMode.Navigation_Flight_Control_Horizontal_Control_Angle);
                     DJIDrone.getDjiGroundStation().setVerticalControlMode(DJIGroundStationTypeDef.DJINavigationFlightControlVerticalControlMode.Navigation_Flight_Control_Vertical_Control_Velocity);
                     DJIDrone.getDjiGroundStation().setYawControlMode(DJIGroundStationTypeDef.DJINavigationFlightControlYawControlMode.Navigation_Flight_Control_Yaw_Control_Angle);
-                }
-                else{
-                    handler.sendMessage(handler.obtainMessage(SHOWTOAST,"GndStation Init Fail!"));
+                } else {
+                    handler.sendMessage(handler.obtainMessage(SHOWTOAST, "GndStation Init Fail!"));
                 }
             }
         });
@@ -385,11 +391,10 @@ public class FPVActivity extends DemoBaseActivity implements OnClickListener, Su
         DJIDrone.getDjiMainController().startTakeoff(new DJIExecuteResultCallback() {
             @Override
             public void onResult(DJIError djiError) {
-                String result = "errorCode =" + djiError.errorCode + "\n"+"errorDescription =" + DJIError.getErrorDescriptionByErrcode(djiError.errorCode);
-                if (djiError.errorCode == DJIError.RESULT_OK){
+                String result = "errorCode =" + djiError.errorCode + "\n" + "errorDescription =" + DJIError.getErrorDescriptionByErrcode(djiError.errorCode);
+                if (djiError.errorCode == DJIError.RESULT_OK) {
                     handler.sendMessage(handler.obtainMessage(SHOWTOAST, "Take off successful!"));
-                }
-                else{
+                } else {
                     handler.sendMessage(handler.obtainMessage(SHOWTOAST, result));
                 }
             }
@@ -453,23 +458,21 @@ public class FPVActivity extends DemoBaseActivity implements OnClickListener, Su
     private void recordAction(){
         // Set the cameraMode as Camera_Record_Mode.
         CameraMode cameraMode = CameraMode.Camera_Record_Mode;
-        DJIDrone.getDjiCamera().setCameraMode(cameraMode, new DJIExecuteResultCallback(){
+        DJIDrone.getDjiCamera().setCameraMode(cameraMode, new DJIExecuteResultCallback() {
 
             @Override
-            public void onResult(DJIError mErr)
-            {
+            public void onResult(DJIError mErr) {
 
-                String result = "errorCode =" + mErr.errorCode + "\n"+"errorDescription =" + DJIError.getErrorDescriptionByErrcode(mErr.errorCode);
+                String result = "errorCode =" + mErr.errorCode + "\n" + "errorDescription =" + DJIError.getErrorDescriptionByErrcode(mErr.errorCode);
                 if (mErr.errorCode == DJIError.RESULT_OK) {
 
                     //Call the startRecord API
-                    DJIDrone.getDjiCamera().startRecord(new DJIExecuteResultCallback(){
+                    DJIDrone.getDjiCamera().startRecord(new DJIExecuteResultCallback() {
 
                         @Override
-                        public void onResult(DJIError mErr)
-                        {
+                        public void onResult(DJIError mErr) {
 
-                            String result = "errorCode =" + mErr.errorCode + "\n"+"errorDescription =" + DJIError.getErrorDescriptionByErrcode(mErr.errorCode);
+                            String result = "errorCode =" + mErr.errorCode + "\n" + "errorDescription =" + DJIError.getErrorDescriptionByErrcode(mErr.errorCode);
                             handler.sendMessage(handler.obtainMessage(SHOWTOAST, result));  // display the returned message in the callback
 
                         }
@@ -548,14 +551,9 @@ public class FPVActivity extends DemoBaseActivity implements OnClickListener, Su
     //Implement the SurfaceHolder Callback
     public void surfaceCreated(SurfaceHolder holder){
         Log.e(TAG, "Surface Created!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
-
-        //Decoder Initialization
-        int width = 640;
-        int height = 480;
-        String videoFormat = "video/avc";
-        MediaFormat format = MediaFormat.createVideoFormat(videoFormat, width, height);
+        SurfaceValid = true;
         format.setString("KEY_MIME", videoFormat);
-        final MediaCodec mCodec;
+
         try
         {
             mCodec = MediaCodec.createDecoderByType(videoFormat);
@@ -570,21 +568,23 @@ public class FPVActivity extends DemoBaseActivity implements OnClickListener, Su
 
                 @Override
                 public void onResult(byte[] videoBuffer, int size){
-                    ArrayList<byte []> NAL_Units = splitNALunits(videoBuffer );
-                    for( int i=0; i< NAL_Units.size(); i++ ) {
-                        // Send off the current buffer of data (Access Unit)
-                        inIndex = mCodec.dequeueInputBuffer( 0 );
-                        if( inIndex >= 0 ) {
-                            ByteBuffer inputBuffer = mCodec.getInputBuffer(inIndex);
-                            inputBuffer.put( accessUnitBuffer.array(), 0, packetLength );
-                            mCodec.queueInputBuffer( inIndex,  0,  packetLength,  presentationTime, 0 );
-                            presentationTime += 100;
-                            packetLength = 0;
-                            accessUnitBuffer.clear();
-                            accessUnitBuffer.rewind();
+                    if (SurfaceValid){
+                        ArrayList<byte []> NAL_Units = splitNALunits(videoBuffer );
+                        for( int i=0; i< NAL_Units.size(); i++ ) {
+                            // Send off the current buffer of data (Access Unit)
+                            inIndex = mCodec.dequeueInputBuffer(0);
+                            if (inIndex >= 0) {
+                                ByteBuffer inputBuffer = mCodec.getInputBuffer(inIndex);
+                                inputBuffer.put(accessUnitBuffer.array(), 0, packetLength);
+                                mCodec.queueInputBuffer(inIndex, 0, packetLength, presentationTime, 0);
+                                presentationTime += 100;
+                                packetLength = 0;
+                                accessUnitBuffer.clear();
+                                accessUnitBuffer.rewind();
+                            }
+                            accessUnitBuffer.put(NAL_Units.get(i));
+                            packetLength += NAL_Units.get(i).length;
                         }
-                        accessUnitBuffer.put( NAL_Units.get(i));
-                        packetLength += NAL_Units.get(i).length;
                     }
                 /*mDjiGLSurfaceView.setDataToDecoder(videoBuffer, size);
                 if (test01 < 5) {
@@ -614,6 +614,8 @@ public class FPVActivity extends DemoBaseActivity implements OnClickListener, Su
     }
 
     public void surfaceDestroyed(SurfaceHolder holder){
+        SurfaceValid = false;
+
         if (DJIDrone.getDjiCamera() != null) {
             DJIDrone.getDjiCamera().setReceivedVideoDataCallBack(null);
         }
