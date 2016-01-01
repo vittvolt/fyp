@@ -41,4 +41,16 @@ public class DJIAoaActivity extends Activity {
         }
         finish();
     }
+
+    @Override
+    protected void onResume(){
+        super.onResume();
+        ServiceManager.getInstance().pauseService(false); // Resume the service
+    }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+        ServiceManager.getInstance().pauseService(true); // Pause the service
+    }
 }

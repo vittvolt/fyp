@@ -68,9 +68,6 @@ public class FPVActivity extends DemoBaseActivity implements OnClickListener, Su
     // New variables
     private boolean gndStation = false;
     private boolean left_spin = false;
-    private int test = 0;
-    private int test01 = 0;
-    private String tests = "";
     private Surface mSurface;
     private SurfaceHolder mSurfaceHolder;
     private boolean SurfaceValid = false;
@@ -82,17 +79,25 @@ public class FPVActivity extends DemoBaseActivity implements OnClickListener, Su
     private MediaCodec mCodec;
 
     //Split the NAL units
-    protected ArrayList<byte []> splitNALunits(byte[] vBuffer){
+    protected ArrayList<byte []> splitNALunits(byte[] vBuffer, int size){
         ArrayList<byte []> NAL_units = new ArrayList<>();
-        int start=0;
-        for (int i=0;i<vBuffer.length;i++){
-            if (vBuffer[i] == 0x00 && vBuffer[i+1] == 0x00 && vBuffer[i+2] == 0x01 && vBuffer[i+3] == 0x09){
-                if (start != 0)
-                    NAL_units.add(Arrays.copyOfRange(vBuffer, start, i - 1));
-                start=i+4;
+        int start = -1;
+        for (int i=0;i<=size-5;i++){
+            if (vBuffer[i] == 0x00 && vBuffer[i+1] == 0x00 && vBuffer[i+2] == 0x00){
+                if (vBuffer[i+3] == 0x00){
+                    if (start != -1)
+                        NAL_units.add(Arrays.copyOfRange(vBuffer,start,i-1));
+                    return NAL_units;
+                }
+                else {
+                    if (start != -1)
+                        NAL_units.add(Arrays.copyOfRange(vBuffer, start, i - 1));
+                    start = i;
+                    i = i + 5;
+                }
             }
-            if (i == vBuffer.length-1)
-                NAL_units.add(Arrays.copyOfRange(vBuffer, start, i));
+            //if (i == vBuffer.length-1)
+            //    NAL_units.add(Arrays.copyOfRange(vBuffer, start, i));
         }
         return NAL_units;
     }
@@ -569,36 +574,27 @@ public class FPVActivity extends DemoBaseActivity implements OnClickListener, Su
                 @Override
                 public void onResult(byte[] videoBuffer, int size){
                     if (SurfaceValid){
-                        ArrayList<byte []> NAL_Units = splitNALunits(videoBuffer );
+                        ArrayList<byte []> NAL_Units = splitNALunits(videoBuffer,size);
                         for( int i=0; i< NAL_Units.size(); i++ ) {
-                            // Send off the current buffer of data (Access Unit)
-                            inIndex = mCodec.dequeueInputBuffer(0);
-                            if (inIndex >= 0) {
-                                ByteBuffer inputBuffer = mCodec.getInputBuffer(inIndex);
-                                inputBuffer.put(accessUnitBuffer.array(), 0, packetLength);
-                                mCodec.queueInputBuffer(inIndex, 0, packetLength, presentationTime, 0);
-                                presentationTime += 100;
-                                packetLength = 0;
-                                accessUnitBuffer.clear();
-                                accessUnitBuffer.rewind();
+                            if( NAL_Units.get(i)[4] == 0x09 ) {
+                                // Send off the current buffer of data (Access Unit)
+                                inIndex = mCodec.dequeueInputBuffer(0);
+                                if (inIndex >= 0) {
+                                    ByteBuffer inputBuffer = mCodec.getInputBuffer(inIndex);
+                                    if (packetLength > 0)
+                                        inputBuffer.put(accessUnitBuffer.array(), 0, packetLength);
+                                    mCodec.queueInputBuffer(inIndex, 0, packetLength, presentationTime, 0);
+                                    presentationTime += 100;
+                                    packetLength = 0;
+                                    accessUnitBuffer.clear();
+                                    accessUnitBuffer.rewind();
+                                }
+                                accessUnitBuffer.put(NAL_Units.get(i));
+                                packetLength += NAL_Units.get(i).length;
                             }
-                            accessUnitBuffer.put(NAL_Units.get(i));
-                            packetLength += NAL_Units.get(i).length;
                         }
                     }
-                /*mDjiGLSurfaceView.setDataToDecoder(videoBuffer, size);
-                if (test01 < 5) {
-                    if (test == 500) {
-                        test01++;
-                        test = 0;
-                        tests = bytesToHex(videoBuffer);
-                        tests = "Bytes: \n" + tests + "\n";
-                        handler.sendMessage(handler.obtainMessage(SHOWTOAST, tests));
-                        generateNoteOnSD("NALs.txt", tests);
-                    } else {
-                        test++;
-                    }
-                } */
+                    //mDjiGLSurfaceView.setDataToDecoder(videoBuffer, size);
                 }
             };
             DJIDrone.getDjiCamera().setReceivedVideoDataCallBack(mReceivedVideoDataCallBack);
