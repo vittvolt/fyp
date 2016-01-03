@@ -1,5 +1,7 @@
 package com.dji.FPVDemo;
 
+import java.io.BufferedInputStream;
+import java.io.InputStream;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -28,6 +30,7 @@ import android.content.Context;
 import android.content.DialogInterface;
 import android.media.MediaCodec;
 import android.media.MediaFormat;
+import android.opengl.GLSurfaceView;
 import android.os.Bundle;
 import android.os.Environment;
 import android.os.Handler;
@@ -39,6 +42,7 @@ import android.view.Menu;
 import android.view.MotionEvent;
 import android.view.Surface;
 import android.view.SurfaceHolder;
+import android.view.SurfaceView;
 import android.view.View;
 import android.view.View.OnClickListener;
 import android.widget.Button;
@@ -62,15 +66,16 @@ public class FPVActivity extends DemoBaseActivity implements OnClickListener, Su
     private DjiGLSurfaceView mDjiGLSurfaceView;
     private DJIReceivedVideoDataCallBack mReceivedVideoDataCallBack = null;
 
-    boolean status = false;
-    private int tt = 1;
-
     // New variables
     private boolean gndStation = false;
     private boolean left_spin = false;
     private Surface mSurface;
     private SurfaceHolder mSurfaceHolder;
     private boolean SurfaceValid = false;
+    private boolean seq_start = false;
+    public byte[] iframe;
+    private boolean iframe_ready = false;
+    private boolean connection = false;
     //Decoder Initialization
     private int width = 640;
     private int height = 480;
@@ -86,18 +91,16 @@ public class FPVActivity extends DemoBaseActivity implements OnClickListener, Su
             if (vBuffer[i] == 0x00 && vBuffer[i+1] == 0x00 && vBuffer[i+2] == 0x00){
                 if (vBuffer[i+3] == 0x00){
                     if (start != -1)
-                        NAL_units.add(Arrays.copyOfRange(vBuffer,start,i-1));
+                        NAL_units.add(Arrays.copyOfRange(vBuffer, start, size));
                     return NAL_units;
                 }
                 else {
                     if (start != -1)
-                        NAL_units.add(Arrays.copyOfRange(vBuffer, start, i - 1));
+                        NAL_units.add(Arrays.copyOfRange(vBuffer, start, i));
                     start = i;
                     i = i + 5;
                 }
             }
-            //if (i == vBuffer.length-1)
-            //    NAL_units.add(Arrays.copyOfRange(vBuffer, start, i));
         }
         return NAL_units;
     }
@@ -197,14 +200,14 @@ public class FPVActivity extends DemoBaseActivity implements OnClickListener, Su
                                 Log.e(TAG, "onGetPermissionResult =" + result);
                                 Log.e(TAG,
                                         "onGetPermissionResultDescription=" + DJIError.getCheckPermissionErrorDescription(result));
-                                handler.sendMessage(handler.obtainMessage(SHOWTOAST, DJIError.getCheckPermissionErrorDescription(result)));
-                                status = true;
+                                //handler.sendMessage(handler.obtainMessage(SHOWDIALOG, "onGetPermissionResult =" + result + DJIError.getCheckPermissionErrorDescription(result)));
+                                connection = true;
                             } else {
                                 // show errors
                                 Log.e(TAG, "onGetPermissionResult =" + result);
                                 Log.e(TAG,
                                         "onGetPermissionResultDescription=" + DJIError.getCheckPermissionErrorDescription(result));
-                                handler.sendMessage(handler.obtainMessage(SHOWTOAST, getString(R.string.demo_activation_error) + DJIError.getCheckPermissionErrorDescription(result) + "\n" + getString(R.string.demo_activation_error_code) + result));
+                                handler.sendMessage(handler.obtainMessage(SHOWDIALOG, getString(R.string.demo_activation_error) + DJIError.getCheckPermissionErrorDescription(result) + "\n" + getString(R.string.demo_activation_error_code) + result));
                             }
                         }
                     });
@@ -214,9 +217,8 @@ public class FPVActivity extends DemoBaseActivity implements OnClickListener, Su
                 }
             }
         }.start();
-        while (status == false){
-            tt=1-tt;
-        }
+        //while (!connection){}
+
         onInitSDK(DroneCode);
         DJIDrone.connectToDrone();
         //handler.sendMessage(handler.obtainMessage(SHOWDIALOG, "Haha!"));
@@ -231,19 +233,32 @@ public class FPVActivity extends DemoBaseActivity implements OnClickListener, Su
                     handler.sendMessage(handler.obtainMessage(SHOWDIALOG, result));
                     // Show the error when setting fails
                 } else {
-                    handler.sendMessage(handler.obtainMessage(SHOWDIALOG, "Camera Init Success!"));
+                    //handler.sendMessage(handler.obtainMessage(SHOWDIALOG, "Camera Init Success!"));
                 }
 
             }
 
         });
 
-        mDjiGLSurfaceView = (DjiGLSurfaceView)findViewById(R.id.DjiSurfaceView_02);
+        mDjiGLSurfaceView = (DjiGLSurfaceView)findViewById(R.id.DjiSurfaceView_);
         //SDK V2.4 updated
-        DJIDrone.getDjiCamera().setDecodeType(DJICameraDecodeTypeDef.DecoderType.Software);
+        //DJIDrone.getDjiCamera().setDecodeType(DJICameraDecodeTypeDef.DecoderType.Software);
         //mDjiGLSurfaceView.start();
 
         mDjiGLSurfaceView.getHolder().addCallback(this);
+
+        //Read the I-Frame file
+        InputStream is = getResources().openRawResource(R.raw.iframe_960_3s);
+        iframe = new byte[676];
+        BufferedInputStream buf = new BufferedInputStream(is);
+        try {
+            buf.read(iframe, 0, iframe.length);
+            buf.close();
+        }
+        catch(Exception e){
+            e.printStackTrace();
+        }
+        iframe_ready = true;
 
         viewTimer = (TextView) findViewById(R.id.timer);
         captureAction = (Button) findViewById(R.id.button1);
@@ -548,7 +563,7 @@ public class FPVActivity extends DemoBaseActivity implements OnClickListener, Su
         if (DJIDrone.getDjiCamera() != null) {
             DJIDrone.getDjiCamera().setReceivedVideoDataCallBack(null);
         }
-        mDjiGLSurfaceView.destroy();
+        //mDjiGLSurfaceView.destroy();
         super.onDestroy();
         Process.killProcess(Process.myPid());
     }
@@ -556,27 +571,38 @@ public class FPVActivity extends DemoBaseActivity implements OnClickListener, Su
     //Implement the SurfaceHolder Callback
     public void surfaceCreated(SurfaceHolder holder){
         Log.e(TAG, "Surface Created!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
-        SurfaceValid = true;
         format.setString("KEY_MIME", videoFormat);
 
         try
         {
             mCodec = MediaCodec.createDecoderByType(videoFormat);
             mCodec.configure(format, mDjiGLSurfaceView.getHolder().getSurface(), null, 0 );
-
             mCodec.start();
+
             mReceivedVideoDataCallBack = new DJIReceivedVideoDataCallBack(){
                 private int packetLength = 0;
                 private ByteBuffer accessUnitBuffer = ByteBuffer.allocate(50000);
                 int inIndex;
-                int presentationTime = 0;
+                long presentationTime = 0;
 
                 @Override
                 public void onResult(byte[] videoBuffer, int size){
-                    if (SurfaceValid){
-                        ArrayList<byte []> NAL_Units = splitNALunits(videoBuffer,size);
-                        for( int i=0; i< NAL_Units.size(); i++ ) {
-                            if( NAL_Units.get(i)[4] == 0x09 ) {
+                    ArrayList<byte []> NAL_Units = splitNALunits(videoBuffer,size);
+                    //Send the I-Frame first
+                    if (!seq_start && iframe_ready){
+                        inIndex = mCodec.dequeueInputBuffer(0);
+                        if (inIndex >= 0) {
+                            ByteBuffer inputBuffer = mCodec.getInputBuffer(inIndex);
+                            inputBuffer.put(iframe,0,iframe.length);
+                            mCodec.queueInputBuffer(inIndex, 0, iframe.length, presentationTime, 0);
+                            presentationTime += 100;
+                            seq_start = true;
+                            handler.sendMessage(handler.obtainMessage(SHOWTOAST, "I-Frame queued!!!"));
+                        }
+                    }
+                    if (seq_start) {
+                        for (int i = 0; i < NAL_Units.size(); i++) {
+                            if (NAL_Units.get(i)[4] == 0x09) {
                                 // Send off the current buffer of data (Access Unit)
                                 inIndex = mCodec.dequeueInputBuffer(0);
                                 if (inIndex >= 0) {
@@ -589,12 +615,19 @@ public class FPVActivity extends DemoBaseActivity implements OnClickListener, Su
                                     accessUnitBuffer.clear();
                                     accessUnitBuffer.rewind();
                                 }
-                                accessUnitBuffer.put(NAL_Units.get(i));
-                                packetLength += NAL_Units.get(i).length;
                             }
+                            accessUnitBuffer.put(NAL_Units.get(i));
+                            packetLength += NAL_Units.get(i).length;
                         }
+                        MediaCodec.BufferInfo bufferinfo = new MediaCodec.BufferInfo();
+                        int outputBufferIndex = mCodec.dequeueOutputBuffer(bufferinfo, 0);
+                        handler.sendMessage(handler.obtainMessage(SHOWTOAST, "outputBufferIndex = " + outputBufferIndex));
+                        while (outputBufferIndex >= 0) {
+                            mCodec.releaseOutputBuffer(outputBufferIndex, true);
+                            outputBufferIndex = mCodec.dequeueOutputBuffer(bufferinfo, 0);
+                        }
+                        //mDjiGLSurfaceView.setDataToDecoder(videoBuffer, size);
                     }
-                    //mDjiGLSurfaceView.setDataToDecoder(videoBuffer, size);
                 }
             };
             DJIDrone.getDjiCamera().setReceivedVideoDataCallBack(mReceivedVideoDataCallBack);
@@ -615,6 +648,6 @@ public class FPVActivity extends DemoBaseActivity implements OnClickListener, Su
         if (DJIDrone.getDjiCamera() != null) {
             DJIDrone.getDjiCamera().setReceivedVideoDataCallBack(null);
         }
-        mDjiGLSurfaceView.destroy();
+        //mDjiGLSurfaceView.destroy();
     }
 }
