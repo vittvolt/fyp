@@ -76,6 +76,7 @@ public class FPVActivity extends DemoBaseActivity implements OnClickListener, Su
     public byte[] SPS = new byte[51];
     public byte[] PPS = new byte[8];
     byte[] IDR = new byte[680];
+    byte[] init_frame = new byte[775];
     boolean sps_ready = false;
 
     //Decoder Initialization
@@ -91,25 +92,27 @@ public class FPVActivity extends DemoBaseActivity implements OnClickListener, Su
         if (size <= 6)
             return NAL_units;
         int start = 0;
-        for (int i=0;i<size;i++){
-            //Todo:
-            if (i >= size - 4){
-                NAL_units.add(Arrays.copyOfRange(vBuffer,start,size));
-                return NAL_units;
-            }
 
-            if (vBuffer[i] == 0x00 && vBuffer[i+1] == 0x00 && vBuffer[i+2] == 0x00){
-                /*if (vBuffer[i+3] == 0x00){
-                    if (i != 0)
-                        NAL_units.add(Arrays.copyOfRange(vBuffer, start, i));
+        if (vBuffer[0] == 0x00 && vBuffer[1] == 0x00 && vBuffer[2] == 0x00 && vBuffer[4] == 0x09){
+            NAL_units.add(Arrays.copyOfRange(vBuffer,0,size));
+            return NAL_units;
+        }
+        else if (vBuffer[size-1] == 0x10 && vBuffer[size-2] == 0x09 && vBuffer[size-3] == 0x01 && vBuffer[size-4] == 0x00){
+            NAL_units.add(Arrays.copyOfRange(vBuffer,0,size-6));
+            return NAL_units;
+        }
+        else {
+            for (int i = 1; i < size; i++) {
+                //Todo:  size - 6
+                if (i >= size - 10) {
+                    NAL_units.add(Arrays.copyOfRange(vBuffer, start, size));
                     return NAL_units;
-                } */
-                if (vBuffer[i+4] == 0x09){
-                    if (i != 0)
-                        NAL_units.add(Arrays.copyOfRange(vBuffer,start,i));
+                }
 
-                    start = i;
-                    i = i + 5;
+                if (vBuffer[i] == 0x00 && vBuffer[i+1] == 0x00 && vBuffer[i+2] == 0x00 && vBuffer[i+4] == 0x09){
+                    NAL_units.add(Arrays.copyOfRange(vBuffer,0,i));
+                    NAL_units.add(Arrays.copyOfRange(vBuffer,i,size));
+                    return NAL_units;
                 }
             }
         }
@@ -242,15 +245,17 @@ public class FPVActivity extends DemoBaseActivity implements OnClickListener, Su
             e.printStackTrace();
         }
         //Configure the PPs & SPS sequences, and the format
-        SPS_PPS = Arrays.copyOfRange(iframe, 0 , 59);
+        /*SPS_PPS = Arrays.copyOfRange(iframe, 0 , 59);
         SPS = Arrays.copyOfRange(iframe, 0, 51);
         PPS = Arrays.copyOfRange(iframe, 51, 59);
         SEI = Arrays.copyOfRange(iframe,59,95);
-        IDR = Arrays.copyOfRange(iframe, 95, 775);
+        IDR = Arrays.copyOfRange(iframe, 95, 775); */
+
+        init_frame = Arrays.copyOfRange(iframe,0,775);
 
         format.setString("KEY_MIME", videoFormat);
-        format.setByteBuffer("csd-0", ByteBuffer.wrap(SPS));
-        format.setByteBuffer("csd-1", ByteBuffer.wrap(PPS));
+        //format.setByteBuffer("csd-0", ByteBuffer.wrap(SPS));
+        //format.setByteBuffer("csd-1", ByteBuffer.wrap(PPS));
 
         //Configure the surface
         mDjiGLSurfaceView = (DjiGLSurfaceView)findViewById(R.id.DjiSurfaceView_);
@@ -603,7 +608,7 @@ public class FPVActivity extends DemoBaseActivity implements OnClickListener, Su
             new Thread() {
                 public void run() {
                     //Todo: feed the SEI 0x06 unit
-                    int Index = mCodec.dequeueInputBuffer(0);
+                    /*int Index = mCodec.dequeueInputBuffer(0);
                     while (Index < 0){
                         Index = mCodec.dequeueInputBuffer(0);
                     }
@@ -621,7 +626,16 @@ public class FPVActivity extends DemoBaseActivity implements OnClickListener, Su
                     b = mCodec.getInputBuffer(Index);
                     b.put(IDR, 0, IDR.length);
                     mCodec.queueInputBuffer(Index, 0, IDR.length, 0, MediaCodec.BUFFER_FLAG_KEY_FRAME);
-                    handler.sendMessage(handler.obtainMessage(SHOWTOAST, "Key frame queued!!!"));
+                    handler.sendMessage(handler.obtainMessage(SHOWTOAST, "Key frame queued!!!"));  */
+
+                    //Todo: feed the init frame
+                    int ind = mCodec.dequeueInputBuffer(0);
+                    while ( ind < 0 )
+                        ind = mCodec.dequeueInputBuffer(0);
+                    ByteBuffer b = mCodec.getInputBuffer(ind);
+                    b.put(iframe, 0, iframe.length);
+                    mCodec.queueInputBuffer(ind, 0, iframe.length, 0, MediaCodec.BUFFER_FLAG_CODEC_CONFIG);
+                    handler.sendMessage(handler.obtainMessage(SHOWTOAST, "I-frame queued!!!"));
 
                     sps_ready = true;
                 }
@@ -632,11 +646,14 @@ public class FPVActivity extends DemoBaseActivity implements OnClickListener, Su
                 private ByteBuffer accessUnitBuffer = ByteBuffer.allocate(50000);
                 int inIndex;
                 long presentationTime = 0;
+                int c = 1;
 
                 @Override
                 public void onResult(byte[] videoBuffer, int size){
                     if (!sps_ready){return;}
                     ArrayList<byte []> NAL_Units = splitNALunits(videoBuffer,size);
+                    if (NAL_Units.size() <= 0)
+                        return;
                     for (int i = 0; i < NAL_Units.size(); i++) {
                         if (NAL_Units.get(i)[4] == 0x09) {
                             if (!seq_start) {
@@ -668,11 +685,16 @@ public class FPVActivity extends DemoBaseActivity implements OnClickListener, Su
                         handler.sendMessage(handler.obtainMessage(SHOWTOAST, "outputBufferIndex = " + outputBufferIndex)); */
                     while (outputBufferIndex >= 0) {
                         mCodec.releaseOutputBuffer(outputBufferIndex, true);
+
+                        handler.sendMessage(handler.obtainMessage(SHOWTOAST, "Decoded frame number: " + c));
+                        c++;
+                        
                         outputBufferIndex = mCodec.dequeueOutputBuffer(bufferinfo, 0);
                     }
                     //mDjiGLSurfaceView.setDataToDecoder(videoBuffer, size);
                     /*TextView myText = (TextView)findViewById(R.id.timer);
                     myText.setText(size); */
+                    //handler.sendMessage(handler.obtainMessage(SHOWTOAST, "Buffer size: " + size));
                 }
             };
             DJIDrone.getDjiCamera().setReceivedVideoDataCallBack(mReceivedVideoDataCallBack);
