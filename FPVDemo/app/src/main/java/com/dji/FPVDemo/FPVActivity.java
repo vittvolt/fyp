@@ -260,7 +260,6 @@ public class FPVActivity extends DemoBaseActivity implements OnClickListener, Su
         //Configure the surface
         mDjiGLSurfaceView = (DjiGLSurfaceView)findViewById(R.id.DjiSurfaceView_);
         //SDK V2.4 updated
-
         //mDjiGLSurfaceView.start();
 
         onInitSDK(DroneCode);
@@ -599,10 +598,11 @@ public class FPVActivity extends DemoBaseActivity implements OnClickListener, Su
     //Implement the SurfaceHolder Callback
     public void surfaceCreated(SurfaceHolder holder) {
         Log.e(TAG, "Surface Created!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
+        mDjiGLSurfaceView.start();
         try
         {
             mCodec = MediaCodec.createDecoderByType(videoFormat);
-            mCodec.configure(format, mDjiGLSurfaceView.getHolder().getSurface(), null, 0);
+            mCodec.configure(format, null, null, 0);
             mCodec.start();
 
             new Thread() {
@@ -645,11 +645,11 @@ public class FPVActivity extends DemoBaseActivity implements OnClickListener, Su
                 private int packetLength = 0;
                 private ByteBuffer accessUnitBuffer = ByteBuffer.allocate(50000);
                 int inIndex;
-                long presentationTime = 0;
                 int c = 1;
 
                 @Override
                 public void onResult(byte[] videoBuffer, int size){
+                    mDjiGLSurfaceView.setDataToDecoder(videoBuffer, size);
                     if (!sps_ready){return;}
                     ArrayList<byte []> NAL_Units = splitNALunits(videoBuffer,size);
                     if (NAL_Units.size() <= 0)
@@ -683,15 +683,12 @@ public class FPVActivity extends DemoBaseActivity implements OnClickListener, Su
                     int outputBufferIndex = mCodec.dequeueOutputBuffer(bufferinfo, 0);
                     /*if (outputBufferIndex != -1)
                         handler.sendMessage(handler.obtainMessage(SHOWTOAST, "outputBufferIndex = " + outputBufferIndex)); */
-                    while (outputBufferIndex >= 0) {
-                        mCodec.releaseOutputBuffer(outputBufferIndex, true);
+                    if (outputBufferIndex >= 0) {
+                        mCodec.releaseOutputBuffer(outputBufferIndex, false);
 
                         handler.sendMessage(handler.obtainMessage(SHOWTOAST, "Decoded frame number: " + c));
                         c++;
-                        
-                        outputBufferIndex = mCodec.dequeueOutputBuffer(bufferinfo, 0);
                     }
-                    //mDjiGLSurfaceView.setDataToDecoder(videoBuffer, size);
                     /*TextView myText = (TextView)findViewById(R.id.timer);
                     myText.setText(size); */
                     //handler.sendMessage(handler.obtainMessage(SHOWTOAST, "Buffer size: " + size));
