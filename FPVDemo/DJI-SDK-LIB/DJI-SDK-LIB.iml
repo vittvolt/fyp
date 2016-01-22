@@ -80,7 +80,7 @@
     <orderEntry type="library" exported="" name="pinyin4j-2.5.0" level="project" />
     <orderEntry type="library" exported="" name="bouncycastle" level="project" />
     <orderEntry type="library" exported="" name="eventbus" level="project" />
-    <orderEntry type="library" exported="" name="mygson-2.0" level="project" />
     <orderEntry type="library" exported="" name="dji-sdk" level="project" />
+    <orderEntry type="library" exported="" name="mygson-2.0" level="project" />
   </component>
 </module>

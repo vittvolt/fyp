@@ -76,7 +76,7 @@ public class FPVActivity extends DemoBaseActivity implements OnClickListener, Su
     public byte[] SPS = new byte[51];
     public byte[] PPS = new byte[8];
     byte[] IDR = new byte[680];
-    byte[] init_frame = new byte[775];
+    //byte[] init_frame = new byte[775];
     boolean sps_ready = false;
 
     //Decoder Initialization
@@ -99,12 +99,13 @@ public class FPVActivity extends DemoBaseActivity implements OnClickListener, Su
         }
         else if (vBuffer[size-1] == 0x10 && vBuffer[size-2] == 0x09 && vBuffer[size-3] == 0x01 && vBuffer[size-4] == 0x00){
             NAL_units.add(Arrays.copyOfRange(vBuffer,0,size-6));
+            NAL_units.add(Arrays.copyOfRange(vBuffer,size-6,size));
             return NAL_units;
         }
         else {
             for (int i = 1; i < size; i++) {
                 //Todo:  size - 6
-                if (i >= size - 10) {
+                if (i >= size - 6) {
                     NAL_units.add(Arrays.copyOfRange(vBuffer, start, size));
                     return NAL_units;
                 }
@@ -251,7 +252,7 @@ public class FPVActivity extends DemoBaseActivity implements OnClickListener, Su
         SEI = Arrays.copyOfRange(iframe,59,95);
         IDR = Arrays.copyOfRange(iframe, 95, 775); */
 
-        init_frame = Arrays.copyOfRange(iframe,0,775);
+        //init_frame = Arrays.copyOfRange(iframe,0,775);
 
         format.setString("KEY_MIME", videoFormat);
         //format.setByteBuffer("csd-0", ByteBuffer.wrap(SPS));
@@ -598,11 +599,11 @@ public class FPVActivity extends DemoBaseActivity implements OnClickListener, Su
     //Implement the SurfaceHolder Callback
     public void surfaceCreated(SurfaceHolder holder) {
         Log.e(TAG, "Surface Created!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
-        mDjiGLSurfaceView.start();
+        //mDjiGLSurfaceView.start();
         try
         {
             mCodec = MediaCodec.createDecoderByType(videoFormat);
-            mCodec.configure(format, null, null, 0);
+            mCodec.configure(format, mDjiGLSurfaceView.getHolder().getSurface(), null, 0);
             mCodec.start();
 
             new Thread() {
@@ -643,13 +644,14 @@ public class FPVActivity extends DemoBaseActivity implements OnClickListener, Su
 
             mReceivedVideoDataCallBack = new DJIReceivedVideoDataCallBack(){
                 private int packetLength = 0;
-                private ByteBuffer accessUnitBuffer = ByteBuffer.allocate(50000);
+                private ByteBuffer accessUnitBuffer = ByteBuffer.allocate(500000);
                 int inIndex;
+                int c0 = 0;
                 int c = 1;
 
                 @Override
                 public void onResult(byte[] videoBuffer, int size){
-                    mDjiGLSurfaceView.setDataToDecoder(videoBuffer, size);
+                    //mDjiGLSurfaceView.setDataToDecoder(videoBuffer, size);
                     if (!sps_ready){return;}
                     ArrayList<byte []> NAL_Units = splitNALunits(videoBuffer,size);
                     if (NAL_Units.size() <= 0)
@@ -671,6 +673,7 @@ public class FPVActivity extends DemoBaseActivity implements OnClickListener, Su
                                     packetLength = 0;
                                     accessUnitBuffer.clear();
                                     accessUnitBuffer.rewind();
+                                    c0++;
                                 }
                             }
                         }
@@ -684,9 +687,9 @@ public class FPVActivity extends DemoBaseActivity implements OnClickListener, Su
                     /*if (outputBufferIndex != -1)
                         handler.sendMessage(handler.obtainMessage(SHOWTOAST, "outputBufferIndex = " + outputBufferIndex)); */
                     if (outputBufferIndex >= 0) {
-                        mCodec.releaseOutputBuffer(outputBufferIndex, false);
+                        mCodec.releaseOutputBuffer(outputBufferIndex, true);
 
-                        handler.sendMessage(handler.obtainMessage(SHOWTOAST, "Decoded frame number: " + c));
+                        handler.sendMessage(handler.obtainMessage(SHOWTOAST, "Decoded frame number: " + c + " And queued frame: " + c0));
                         c++;
                     }
                     /*TextView myText = (TextView)findViewById(R.id.timer);
