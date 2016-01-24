@@ -267,6 +267,34 @@ public class FPVActivity extends DemoBaseActivity implements OnClickListener, Su
         DJIDrone.connectToDrone();
 
         DJIDrone.getDjiCamera().setDecodeType(DJICameraDecodeTypeDef.DecoderType.Software);
+
+        // Set the camera exposure compensation value to increase the brightness of the video
+        DJIDrone.getDjiCamera().setCameraExposureMode(DJICameraSettingsTypeDef.CameraExposureMode.Camera_Exposure_Mode_Shutter, new DJIExecuteResultCallback() {
+            @Override
+            public void onResult(DJIError djiError) {
+                String result = "errorCode =" + djiError.errorCode + "\n" + "errorDescription =" + DJIError.getErrorDescriptionByErrcode(djiError.errorCode);
+                if (djiError.errorCode != DJIError.RESULT_OK) {
+                    handler.sendMessage(handler.obtainMessage(SHOWTOAST, "Error setting exposure mode!!!" + result));
+                    // Show the error when setting fails
+                } else {
+                    handler.sendMessage(handler.obtainMessage(SHOWTOAST,"Camera Exposure Mode set!"));
+                }
+            }
+        });
+
+        DJIDrone.getDjiCamera().setCameraExposureCompensation(DJICameraSettingsTypeDef.CameraExposureCompensationType.Camera_Exposure_Compensation_P_4_0, new DJIExecuteResultCallback() {
+            @Override
+            public void onResult(DJIError djiError) {
+                String result = "errorCode =" + djiError.errorCode + "\n" + "errorDescription =" + DJIError.getErrorDescriptionByErrcode(djiError.errorCode);
+                if (djiError.errorCode != DJIError.RESULT_OK) {
+                    handler.sendMessage(handler.obtainMessage(SHOWTOAST, "Error setting the compensation !!!" + result));
+                    // Show the error when setting fails
+                } else {
+                    handler.sendMessage(handler.obtainMessage(SHOWTOAST,"Camera Exposure Compensation set!"));
+                }
+            }
+        });
+
         mDjiGLSurfaceView.getHolder().addCallback(this);
 
         //handler.sendMessage(handler.obtainMessage(SHOWDIALOG, "Haha!"));
@@ -689,7 +717,7 @@ public class FPVActivity extends DemoBaseActivity implements OnClickListener, Su
                     if (outputBufferIndex >= 0) {
                         mCodec.releaseOutputBuffer(outputBufferIndex, true);
 
-                        handler.sendMessage(handler.obtainMessage(SHOWTOAST, "Decoded frame number: " + c + " And queued frame: " + c0));
+                        //handler.sendMessage(handler.obtainMessage(SHOWTOAST, "Decoded frame number: " + c + " And queued frame: " + c0));
                         c++;
                     }
                     /*TextView myText = (TextView)findViewById(R.id.timer);
