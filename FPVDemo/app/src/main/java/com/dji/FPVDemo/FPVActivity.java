@@ -59,7 +59,7 @@ public class FPVActivity extends DemoBaseActivity implements OnClickListener, Su
     private final int SHOWDIALOG = 1;
     private final int SHOWTOAST = 2;
     private final int STOP_RECORDING = 10;
-    private Button captureAction, recordAction, captureMode, TakeOff, Landing, Left, openGndStation, Test;
+    private Button captureAction, recordAction, captureMode, TakeOff, Landing, Left, Right, Forward, Backward, openGndStation, Test;
     private TextView viewTimer;
     private int i = 0;
     private int TIME = 1000;
@@ -69,6 +69,9 @@ public class FPVActivity extends DemoBaseActivity implements OnClickListener, Su
     // New variables
     private boolean gndStation = false;
     private boolean left_spin = false;
+    private boolean right_spin = false;
+    private boolean move_forward = false;
+    private boolean move_backward = false;
     private boolean seq_start = false;
     public byte[] iframe;
     public byte[] SEI = new byte[36];
@@ -76,6 +79,7 @@ public class FPVActivity extends DemoBaseActivity implements OnClickListener, Su
     public byte[] SPS = new byte[51];
     public byte[] PPS = new byte[8];
     byte[] IDR = new byte[680];
+    int k = 0;
     //byte[] init_frame = new byte[775];
     boolean sps_ready = false;
 
@@ -170,23 +174,7 @@ public class FPVActivity extends DemoBaseActivity implements OnClickListener, Su
         }
     });
 
-
     private Handler handlerTimer = new Handler();
-    /*Runnable runnable = new Runnable(){
-        @Override
-        public void run() {
-            // handler自带方法实现定时器
-            try {
-
-                handlerTimer.postDelayed(this, TIME);
-                viewTimer.setText(Integer.toString(i++));
-
-            } catch (Exception e) {
-                // TODO Auto-generated catch block
-                e.printStackTrace();
-            }
-        }
-    }; */
 
     // Create menu
     @Override
@@ -235,24 +223,7 @@ public class FPVActivity extends DemoBaseActivity implements OnClickListener, Su
         //while (!connection){}
 
         //Read the I-Frame file
-        InputStream is = getResources().openRawResource(R.raw.iframe_1280_3s);
-        iframe = new byte[781];
-        BufferedInputStream buf = new BufferedInputStream(is);
-        try {
-            buf.read(iframe, 0, iframe.length);
-            buf.close();
-        }
-        catch(Exception e){
-            e.printStackTrace();
-        }
-        //Configure the PPs & SPS sequences, and the format
-        /*SPS_PPS = Arrays.copyOfRange(iframe, 0 , 59);
-        SPS = Arrays.copyOfRange(iframe, 0, 51);
-        PPS = Arrays.copyOfRange(iframe, 51, 59);
-        SEI = Arrays.copyOfRange(iframe,59,95);
-        IDR = Arrays.copyOfRange(iframe, 95, 775); */
-
-        //init_frame = Arrays.copyOfRange(iframe,0,775);
+        Read_IFrame();
 
         format.setString("KEY_MIME", videoFormat);
         //format.setByteBuffer("csd-0", ByteBuffer.wrap(SPS));
@@ -268,36 +239,10 @@ public class FPVActivity extends DemoBaseActivity implements OnClickListener, Su
 
         DJIDrone.getDjiCamera().setDecodeType(DJICameraDecodeTypeDef.DecoderType.Software);
 
-        // Set the camera exposure compensation value to increase the brightness of the video
-        DJIDrone.getDjiCamera().setCameraExposureMode(DJICameraSettingsTypeDef.CameraExposureMode.Camera_Exposure_Mode_Shutter, new DJIExecuteResultCallback() {
-            @Override
-            public void onResult(DJIError djiError) {
-                String result = "errorCode =" + djiError.errorCode + "\n" + "errorDescription =" + DJIError.getErrorDescriptionByErrcode(djiError.errorCode);
-                if (djiError.errorCode != DJIError.RESULT_OK) {
-                    handler.sendMessage(handler.obtainMessage(SHOWTOAST, "Error setting exposure mode!!!" + result));
-                    // Show the error when setting fails
-                } else {
-                    handler.sendMessage(handler.obtainMessage(SHOWTOAST,"Camera Exposure Mode set!"));
-                }
-            }
-        });
-
-        DJIDrone.getDjiCamera().setCameraExposureCompensation(DJICameraSettingsTypeDef.CameraExposureCompensationType.Camera_Exposure_Compensation_P_4_0, new DJIExecuteResultCallback() {
-            @Override
-            public void onResult(DJIError djiError) {
-                String result = "errorCode =" + djiError.errorCode + "\n" + "errorDescription =" + DJIError.getErrorDescriptionByErrcode(djiError.errorCode);
-                if (djiError.errorCode != DJIError.RESULT_OK) {
-                    handler.sendMessage(handler.obtainMessage(SHOWTOAST, "Error setting the compensation !!!" + result));
-                    // Show the error when setting fails
-                } else {
-                    handler.sendMessage(handler.obtainMessage(SHOWTOAST,"Camera Exposure Compensation set!"));
-                }
-            }
-        });
+        Set_Camera_Exposure_Mode();
 
         mDjiGLSurfaceView.getHolder().addCallback(this);
 
-        //handler.sendMessage(handler.obtainMessage(SHOWDIALOG, "Haha!"));
         // Try to initialize the camera to capture mode
         /*DJIDrone.getDjiCamera().setCameraMode(CameraMode.Camera_Capture_Mode, new DJIExecuteResultCallback() {
 
@@ -316,57 +261,7 @@ public class FPVActivity extends DemoBaseActivity implements OnClickListener, Su
 
         }); */
 
-        viewTimer = (TextView) findViewById(R.id.timer);
-        captureAction = (Button) findViewById(R.id.button1);
-        recordAction = (Button) findViewById(R.id.button2);
-        captureMode = (Button) findViewById(R.id.button3);
-
-        //Set for the new buttons
-        TakeOff = (Button) findViewById(R.id.take_off);
-        Landing = (Button) findViewById(R.id.landing);
-        openGndStation = (Button) findViewById(R.id.openGndStation);
-        Test = (Button) findViewById(R.id.test);
-
-        Left = (Button) findViewById(R.id.left);
-        Left.setOnTouchListener(new View.OnTouchListener() {
-            @Override
-            public boolean onTouch(View v, MotionEvent event) {
-                if (event.getAction() == MotionEvent.ACTION_DOWN) {
-                    //handler.sendMessage(handler.obtainMessage(SHOWTOAST, "Down!"));
-                    left_spin = true;
-                    new Thread() {
-                        public void run() {
-                            DJIDrone.getDjiGroundStation().sendFlightControlData(20, 0, 0, 0, new DJIExecuteResultCallback() {
-                                @Override
-                                public void onResult(DJIError djiError) {
-                                    if (djiError.errorCode != DJIError.RESULT_OK && djiError.errorCode != DJIError.RESULT_SUCCEED) {
-                                        String result = "errorCode =" + djiError.errorCode + "\n" + "errorDescription =" + DJIError.getErrorDescriptionByErrcode(djiError.errorCode);
-                                        handler.sendMessage(handler.obtainMessage(SHOWTOAST, result));
-                                    }
-                                }
-                            });
-                            if (left_spin && gndStation) {
-                                handlerTimer.postDelayed(this, 1000);
-                            }
-                        }
-                    }.start();
-                }
-                if (event.getAction() == MotionEvent.ACTION_UP) {
-                    //handler.sendMessage(handler.obtainMessage(SHOWTOAST, "Up!"));
-                    left_spin = false;
-                }
-                return false;
-            }
-        });
-
-        captureAction.setOnClickListener(this);
-        recordAction.setOnClickListener(this);
-        captureMode.setOnClickListener(this);
-
-        TakeOff.setOnClickListener(this);
-        Landing.setOnClickListener(this);
-        openGndStation.setOnClickListener(this);
-        Test.setOnClickListener(this);
+        UI_Initialization();
 
         /*tests = Environment.getExternalStorageState();
         handler.sendMessage(handler.obtainMessage(SHOWTOAST, tests)); */
@@ -453,7 +348,7 @@ public class FPVActivity extends DemoBaseActivity implements OnClickListener, Su
                     DJIDrone.getDjiGroundStation().setHorizontalControlCoordinateSystem(DJIGroundStationTypeDef.DJINavigationFlightControlCoordinateSystem.Navigation_Flight_Control_Coordinate_System_Body);
                     DJIDrone.getDjiGroundStation().setHorizontalControlMode(DJIGroundStationTypeDef.DJINavigationFlightControlHorizontalControlMode.Navigation_Flight_Control_Horizontal_Control_Angle);
                     DJIDrone.getDjiGroundStation().setVerticalControlMode(DJIGroundStationTypeDef.DJINavigationFlightControlVerticalControlMode.Navigation_Flight_Control_Vertical_Control_Velocity);
-                    DJIDrone.getDjiGroundStation().setYawControlMode(DJIGroundStationTypeDef.DJINavigationFlightControlYawControlMode.Navigation_Flight_Control_Yaw_Control_Angle);
+                    DJIDrone.getDjiGroundStation().setYawControlMode(DJIGroundStationTypeDef.DJINavigationFlightControlYawControlMode.Navigation_Flight_Control_Yaw_Control_Palstance);
                 } else {
                     handler.sendMessage(handler.obtainMessage(SHOWTOAST, "GndStation Init Fail!"));
                 }
@@ -744,5 +639,284 @@ public class FPVActivity extends DemoBaseActivity implements OnClickListener, Su
             DJIDrone.getDjiCamera().setReceivedVideoDataCallBack(null);
         }
         mDjiGLSurfaceView.destroy();
+    }
+
+    public void UI_Initialization(){
+        viewTimer = (TextView) findViewById(R.id.timer);
+        captureAction = (Button) findViewById(R.id.button1);
+        recordAction = (Button) findViewById(R.id.button2);
+        captureMode = (Button) findViewById(R.id.button3);
+
+        //Set for the new buttons
+        TakeOff = (Button) findViewById(R.id.take_off);
+        Landing = (Button) findViewById(R.id.landing);
+        openGndStation = (Button) findViewById(R.id.openGndStation);
+        Test = (Button) findViewById(R.id.test);
+
+        Left = (Button) findViewById(R.id.left);
+        Left.setOnTouchListener(new View.OnTouchListener() {
+            @Override
+            public boolean onTouch(View v, MotionEvent event) {
+                if (event.getAction() == MotionEvent.ACTION_DOWN) {
+                    //To make sure there will be no conflictions between flight control commands
+                    right_spin = false;
+                    move_forward = false;
+                    move_backward = false;
+                    try {
+                        Thread.sleep(40);
+                    }
+                    catch (Exception e){
+                        e.printStackTrace();
+                    }
+
+                    left_spin = true;
+                    new Thread() {
+                        public void run() {
+                            Spinning_CounterCLKWise();
+
+                            //Debug
+                            runOnUiThread(new Runnable() {
+                                @Override
+                                public void run() {
+                                    viewTimer.setText(String.valueOf(k));
+                                }
+                            });
+                            k = 1 - k;
+                            /*try {
+                                   Thread.sleep(25);
+                               }
+                               catch(Exception e){
+                                   e.printStackTrace();
+                               }  */
+                            if(left_spin && gndStation){
+                                handlerTimer.postDelayed(this,25);
+                            }
+                        }
+                    }.start();
+                }
+                else if (event.getAction() == MotionEvent.ACTION_UP) {
+                    left_spin = false;
+                }
+                return false;
+            }
+        });
+
+        Right = (Button) findViewById(R.id.right);
+        Right.setOnTouchListener(new View.OnTouchListener(){
+            @Override
+            public boolean onTouch(View v, MotionEvent event) {
+                if (event.getAction() == MotionEvent.ACTION_DOWN) {
+                    left_spin = false;
+                    move_forward = false;
+                    move_backward = false;
+                    try{
+                        Thread.sleep(40);
+                    }
+                    catch (Exception e){
+                        e.printStackTrace();
+                    }
+
+                    right_spin = true;
+                    new Thread() {
+                        public void run() {
+                            Spinning_CLKWise();
+                            if (right_spin && gndStation){
+                                handlerTimer.postDelayed(this,25);
+                            }
+                        }
+                    }.start();
+                }
+                else if (event.getAction() == MotionEvent.ACTION_UP){
+                    right_spin = false;
+                }
+                return false;
+            }
+        });
+
+        Forward = (Button) findViewById(R.id.forward);
+        Forward.setOnTouchListener(new View.OnTouchListener(){
+            @Override
+            public boolean onTouch(View v, MotionEvent event) {
+                if (event.getAction() == MotionEvent.ACTION_DOWN) {
+                    left_spin = false;
+                    right_spin = false;
+                    move_backward = false;
+                    try {
+                        Thread.sleep(40);
+                    }
+                    catch (Exception e){
+                        e.printStackTrace();
+                    }
+
+                    move_forward = true;
+                    new Thread() {
+                        public void run() {
+                            Move_Forward();
+                            if (move_forward && gndStation){
+                                handlerTimer.postDelayed(this,25);
+                            }
+                        }
+                    }.start();
+                }
+                else if (event.getAction() == MotionEvent.ACTION_UP){
+                    move_forward = false;
+                }
+                return false;
+            }
+        });
+
+        Backward = (Button) findViewById(R.id.backward);
+        Backward.setOnTouchListener(new View.OnTouchListener() {
+            @Override
+            public boolean onTouch(View v, MotionEvent event) {
+                if (event.getAction() == MotionEvent.ACTION_DOWN) {
+                    left_spin = false;
+                    right_spin = false;
+                    move_forward = false;
+                    try{
+                        Thread.sleep(40);
+                    }
+                    catch (Exception e){
+                        e.printStackTrace();
+                    }
+
+                    move_backward = true;
+                    new Thread() {
+                        public void run() {
+                            Move_Backward();
+                            if (move_backward && gndStation){
+                                handlerTimer.postDelayed(this,25);
+                            }
+                        }
+                    }.start();
+                } else if (event.getAction() == MotionEvent.ACTION_UP) {
+                    move_backward = false;
+                }
+                return false;
+            }
+        });
+
+        captureAction.setOnClickListener(this);
+        recordAction.setOnClickListener(this);
+        captureMode.setOnClickListener(this);
+
+        TakeOff.setOnClickListener(this);
+        Landing.setOnClickListener(this);
+        openGndStation.setOnClickListener(this);
+        Test.setOnClickListener(this);
+    }
+
+    public void Read_IFrame(){
+        InputStream is = getResources().openRawResource(R.raw.iframe_1280_3s);
+        iframe = new byte[781];
+        BufferedInputStream buf = new BufferedInputStream(is);
+        try {
+            buf.read(iframe, 0, iframe.length);
+            buf.close();
+        }
+        catch(Exception e){
+            e.printStackTrace();
+        }
+        //Configure the PPs & SPS sequences, and the format
+        /*SPS_PPS = Arrays.copyOfRange(iframe, 0 , 59);
+        SPS = Arrays.copyOfRange(iframe, 0, 51);
+        PPS = Arrays.copyOfRange(iframe, 51, 59);
+        SEI = Arrays.copyOfRange(iframe,59,95);
+        IDR = Arrays.copyOfRange(iframe, 95, 775); */
+
+        //init_frame = Arrays.copyOfRange(iframe,0,775);
+    }
+
+    public void Set_Camera_Exposure_Mode(){
+        // Set the camera exposure compensation value to increase the brightness of the video
+        /*DJIDrone.getDjiCamera().setCameraExposureMode(DJICameraSettingsTypeDef.CameraExposureMode.Camera_Exposure_Mode_Shutter, new DJIExecuteResultCallback() {
+            @Override
+            public void onResult(DJIError djiError) {
+                String result = "errorCode =" + djiError.errorCode + "\n" + "errorDescription =" + DJIError.getErrorDescriptionByErrcode(djiError.errorCode);
+                if (djiError.errorCode != DJIError.RESULT_OK) {
+                    handler.sendMessage(handler.obtainMessage(SHOWTOAST, "Error setting exposure mode!!!" + result));
+                    // Show the error when setting fails
+                } else {
+                    handler.sendMessage(handler.obtainMessage(SHOWTOAST,"Camera Exposure Mode set!"));
+                }
+            }
+        }); */
+
+        DJIDrone.getDjiCamera().setCameraExposureCompensation(DJICameraSettingsTypeDef.CameraExposureCompensationType.Camera_Exposure_Compensation_P_4_0, new DJIExecuteResultCallback() {
+            @Override
+            public void onResult(DJIError djiError) {
+                String result = "errorCode =" + djiError.errorCode + "\n" + "errorDescription =" + DJIError.getErrorDescriptionByErrcode(djiError.errorCode);
+                if (djiError.errorCode != DJIError.RESULT_OK) {
+                    handler.sendMessage(handler.obtainMessage(SHOWTOAST, "Error setting the compensation !!!" + result));
+                    // Show the error when setting fails
+                } else {
+                    handler.sendMessage(handler.obtainMessage(SHOWTOAST,"Camera Exposure Compensation set!"));
+                }
+            }
+        });
+    }
+
+    public void Spinning_CounterCLKWise(){
+        DJIDrone.getDjiGroundStation().setHorizontalControlCoordinateSystem(DJIGroundStationTypeDef.DJINavigationFlightControlCoordinateSystem.Navigation_Flight_Control_Coordinate_System_Body);
+        DJIDrone.getDjiGroundStation().setHorizontalControlMode(DJIGroundStationTypeDef.DJINavigationFlightControlHorizontalControlMode.Navigation_Flight_Control_Horizontal_Control_Angle);
+        DJIDrone.getDjiGroundStation().setVerticalControlMode(DJIGroundStationTypeDef.DJINavigationFlightControlVerticalControlMode.Navigation_Flight_Control_Vertical_Control_Velocity);
+        DJIDrone.getDjiGroundStation().setYawControlMode(DJIGroundStationTypeDef.DJINavigationFlightControlYawControlMode.Navigation_Flight_Control_Yaw_Control_Palstance);
+        DJIDrone.getDjiGroundStation().sendFlightControlData(-30, 0, 0, 0, new DJIExecuteResultCallback() {
+            @Override
+            public void onResult(DJIError djiError) {
+                if (djiError.errorCode != DJIError.RESULT_OK && djiError.errorCode != DJIError.RESULT_SUCCEED) {
+                    String result = "errorCode =" + djiError.errorCode + "\n" + "errorDescription =" + DJIError.getErrorDescriptionByErrcode(djiError.errorCode);
+                    handler.sendMessage(handler.obtainMessage(SHOWTOAST, result));
+                }
+            }
+        });
+    }
+
+    public void Spinning_CLKWise(){
+        DJIDrone.getDjiGroundStation().setHorizontalControlCoordinateSystem(DJIGroundStationTypeDef.DJINavigationFlightControlCoordinateSystem.Navigation_Flight_Control_Coordinate_System_Body);
+        DJIDrone.getDjiGroundStation().setHorizontalControlMode(DJIGroundStationTypeDef.DJINavigationFlightControlHorizontalControlMode.Navigation_Flight_Control_Horizontal_Control_Angle);
+        DJIDrone.getDjiGroundStation().setVerticalControlMode(DJIGroundStationTypeDef.DJINavigationFlightControlVerticalControlMode.Navigation_Flight_Control_Vertical_Control_Velocity);
+        DJIDrone.getDjiGroundStation().setYawControlMode(DJIGroundStationTypeDef.DJINavigationFlightControlYawControlMode.Navigation_Flight_Control_Yaw_Control_Palstance);
+        DJIDrone.getDjiGroundStation().sendFlightControlData(30, 0, 0, 0, new DJIExecuteResultCallback() {
+            @Override
+            public void onResult(DJIError djiError) {
+                if (djiError.errorCode != DJIError.RESULT_OK && djiError.errorCode != DJIError.RESULT_SUCCEED) {
+                    String result = "errorCode =" + djiError.errorCode + "\n" + "errorDescription =" + DJIError.getErrorDescriptionByErrcode(djiError.errorCode);
+                    handler.sendMessage(handler.obtainMessage(SHOWTOAST, result));
+                }
+            }
+        });
+    }
+
+    public void Move_Forward(){
+        DJIDrone.getDjiGroundStation().setHorizontalControlCoordinateSystem(DJIGroundStationTypeDef.DJINavigationFlightControlCoordinateSystem.Navigation_Flight_Control_Coordinate_System_Body);
+        DJIDrone.getDjiGroundStation().setHorizontalControlMode(DJIGroundStationTypeDef.DJINavigationFlightControlHorizontalControlMode.Navigation_Flight_Control_Horizontal_Control_Angle);
+        DJIDrone.getDjiGroundStation().setVerticalControlMode(DJIGroundStationTypeDef.DJINavigationFlightControlVerticalControlMode.Navigation_Flight_Control_Vertical_Control_Velocity);
+        DJIDrone.getDjiGroundStation().setYawControlMode(DJIGroundStationTypeDef.DJINavigationFlightControlYawControlMode.Navigation_Flight_Control_Yaw_Control_Palstance);
+        DJIDrone.getDjiGroundStation().sendFlightControlData(0, -4, 0, 0, new DJIExecuteResultCallback() {
+            @Override
+            public void onResult(DJIError djiError) {
+                if (djiError.errorCode != DJIError.RESULT_OK && djiError.errorCode != DJIError.RESULT_SUCCEED) {
+                    String result = "errorCode =" + djiError.errorCode + "\n" + "errorDescription =" + DJIError.getErrorDescriptionByErrcode(djiError.errorCode);
+                    handler.sendMessage(handler.obtainMessage(SHOWTOAST, result));
+                }
+            }
+        });
+    }
+
+    public void Move_Backward(){
+        DJIDrone.getDjiGroundStation().setHorizontalControlCoordinateSystem(DJIGroundStationTypeDef.DJINavigationFlightControlCoordinateSystem.Navigation_Flight_Control_Coordinate_System_Body);
+        DJIDrone.getDjiGroundStation().setHorizontalControlMode(DJIGroundStationTypeDef.DJINavigationFlightControlHorizontalControlMode.Navigation_Flight_Control_Horizontal_Control_Angle);
+        DJIDrone.getDjiGroundStation().setVerticalControlMode(DJIGroundStationTypeDef.DJINavigationFlightControlVerticalControlMode.Navigation_Flight_Control_Vertical_Control_Velocity);
+        DJIDrone.getDjiGroundStation().setYawControlMode(DJIGroundStationTypeDef.DJINavigationFlightControlYawControlMode.Navigation_Flight_Control_Yaw_Control_Palstance);
+        DJIDrone.getDjiGroundStation().sendFlightControlData(0, 4, 0, 0, new DJIExecuteResultCallback() {
+            @Override
+            public void onResult(DJIError djiError) {
+                if (djiError.errorCode != DJIError.RESULT_OK && djiError.errorCode != DJIError.RESULT_SUCCEED) {
+                    String result = "errorCode =" + djiError.errorCode + "\n" + "errorDescription =" + DJIError.getErrorDescriptionByErrcode(djiError.errorCode);
+                    handler.sendMessage(handler.obtainMessage(SHOWTOAST, result));
+                }
+            }
+        });
     }
 }
