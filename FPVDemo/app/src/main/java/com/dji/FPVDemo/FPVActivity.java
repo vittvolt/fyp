@@ -5,6 +5,7 @@ import java.io.InputStream;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Timer;
 import java.util.TimerTask;
 import java.io.File;
@@ -28,6 +29,10 @@ import dji.sdk.widget.DjiGLSurfaceView;
 import android.app.AlertDialog;
 import android.content.Context;
 import android.content.DialogInterface;
+import android.graphics.Bitmap;
+import android.graphics.Canvas;
+import android.graphics.Rect;
+import android.graphics.SurfaceTexture;
 import android.media.MediaCodec;
 import android.media.MediaFormat;
 import android.opengl.GLSurfaceView;
@@ -43,6 +48,7 @@ import android.view.MotionEvent;
 import android.view.Surface;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
+import android.view.TextureView;
 import android.view.View;
 import android.view.View.OnClickListener;
 import android.widget.Button;
@@ -52,7 +58,46 @@ import dji.sdk.api.GroundStation.DJIGroundStation;
 import dji.sdk.api.MainController.DJIMainController;
 import android.content.Context;
 
-public class FPVActivity extends DemoBaseActivity implements OnClickListener, SurfaceHolder.Callback{
+import org.opencv.android.BaseLoaderCallback;
+import org.opencv.android.LoaderCallbackInterface;
+import org.opencv.android.Utils;
+import org.opencv.core.CvType;
+import org.opencv.core.Mat;
+import org.opencv.core.MatOfPoint;
+import org.opencv.core.Scalar;
+import org.opencv.core.Size;
+import org.opencv.imgproc.Imgproc;
+
+public class FPVActivity extends DemoBaseActivity implements OnClickListener, TextureView.SurfaceTextureListener{
+
+    //Color blob detection variables
+    private boolean              mIsColorSelected = false;
+    private Mat mRgba;
+    private Scalar mBlobColorRgba;
+    private Scalar               mBlobColorHsv;
+    private ColorBlobDetector    mDetector;
+    private Mat                  mSpectrum;
+    private Size SPECTRUM_SIZE;
+    private Scalar               CONTOUR_COLOR;
+
+    /*static{
+        System.loadLibrary("opencv_java3");
+    } */
+    private BaseLoaderCallback mLoaderCallback = new BaseLoaderCallback(this) {
+        @Override
+        public void onManagerConnected(int status) {
+            switch (status) {
+                case LoaderCallbackInterface.SUCCESS:
+                {
+                    Log.i(TAG, "OpenCV loaded successfully");
+                } break;
+                default:
+                {
+                    super.onManagerConnected(status);
+                } break;
+            }
+        }
+    };
 
     private static final String TAG = "FPVActivity";
     private int DroneCode;
@@ -63,10 +108,11 @@ public class FPVActivity extends DemoBaseActivity implements OnClickListener, Su
     private TextView viewTimer;
     private int i = 0;
     private int TIME = 1000;
-    private DjiGLSurfaceView mDjiGLSurfaceView;
+    private TextureView mDjiGLSurfaceView, TextureView_Display;
     private DJIReceivedVideoDataCallBack mReceivedVideoDataCallBack = null;
 
     // New variables
+    int step_count = 0;
     private boolean gndStation = false;
     private boolean left_spin = false;
     private boolean right_spin = false;
@@ -230,7 +276,8 @@ public class FPVActivity extends DemoBaseActivity implements OnClickListener, Su
         //format.setByteBuffer("csd-1", ByteBuffer.wrap(PPS));
 
         //Configure the surface
-        mDjiGLSurfaceView = (DjiGLSurfaceView)findViewById(R.id.DjiSurfaceView_);
+        mDjiGLSurfaceView = (TextureView)findViewById(R.id.DjiSurfaceView_);
+        TextureView_Display = (TextureView) findViewById(R.id.view02);
         //SDK V2.4 updated
         //mDjiGLSurfaceView.start();
 
@@ -241,7 +288,7 @@ public class FPVActivity extends DemoBaseActivity implements OnClickListener, Su
 
         Set_Camera_Exposure_Mode();
 
-        mDjiGLSurfaceView.getHolder().addCallback(this);
+        mDjiGLSurfaceView.setSurfaceTextureListener(this);
 
         // Try to initialize the camera to capture mode
         /*DJIDrone.getDjiCamera().setCameraMode(CameraMode.Camera_Capture_Mode, new DJIExecuteResultCallback() {
@@ -324,7 +371,7 @@ public class FPVActivity extends DemoBaseActivity implements OnClickListener, Su
                 break;
             }
             case R.id.test:{
-                left_spin = false;
+                gndStation = false;
                 break;
             }
             default:
@@ -514,19 +561,30 @@ public class FPVActivity extends DemoBaseActivity implements OnClickListener, Su
         if (DJIDrone.getDjiCamera() != null) {
             DJIDrone.getDjiCamera().setReceivedVideoDataCallBack(null);
         }
-        mDjiGLSurfaceView.destroy();
+        //mDjiGLSurfaceView.destroy();
         super.onDestroy();
         Process.killProcess(Process.myPid());
     }
 
     //Implement the SurfaceHolder Callback
-    public void surfaceCreated(SurfaceHolder holder) {
+    @Override
+    public void onSurfaceTextureAvailable(SurfaceTexture surface, int width, int height) {
         Log.e(TAG, "Surface Created!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
         //mDjiGLSurfaceView.start();
+
+        //Detector Init
+        mRgba = new Mat();
+        mDetector = new ColorBlobDetector();
+        mSpectrum = new Mat();
+        mBlobColorRgba = new Scalar(255);
+        mBlobColorHsv = new Scalar(255);
+        SPECTRUM_SIZE = new Size(200, 64);
+        CONTOUR_COLOR = new Scalar(255,0,0,255);
+
         try
         {
             mCodec = MediaCodec.createDecoderByType(videoFormat);
-            mCodec.configure(format, mDjiGLSurfaceView.getHolder().getSurface(), null, 0);
+            mCodec.configure(format, new Surface(surface), null, 0);
             mCodec.start();
 
             new Thread() {
@@ -569,8 +627,6 @@ public class FPVActivity extends DemoBaseActivity implements OnClickListener, Su
                 private int packetLength = 0;
                 private ByteBuffer accessUnitBuffer = ByteBuffer.allocate(500000);
                 int inIndex;
-                int c0 = 0;
-                int c = 1;
 
                 @Override
                 public void onResult(byte[] videoBuffer, int size){
@@ -596,7 +652,6 @@ public class FPVActivity extends DemoBaseActivity implements OnClickListener, Su
                                     packetLength = 0;
                                     accessUnitBuffer.clear();
                                     accessUnitBuffer.rewind();
-                                    c0++;
                                 }
                             }
                         }
@@ -607,13 +662,9 @@ public class FPVActivity extends DemoBaseActivity implements OnClickListener, Su
                     }
                     MediaCodec.BufferInfo bufferinfo = new MediaCodec.BufferInfo();
                     int outputBufferIndex = mCodec.dequeueOutputBuffer(bufferinfo, 0);
-                    /*if (outputBufferIndex != -1)
-                        handler.sendMessage(handler.obtainMessage(SHOWTOAST, "outputBufferIndex = " + outputBufferIndex)); */
                     if (outputBufferIndex >= 0) {
                         mCodec.releaseOutputBuffer(outputBufferIndex, true);
-
                         //handler.sendMessage(handler.obtainMessage(SHOWTOAST, "Decoded frame number: " + c + " And queued frame: " + c0));
-                        c++;
                     }
                     /*TextView myText = (TextView)findViewById(R.id.timer);
                     myText.setText(size); */
@@ -628,17 +679,77 @@ public class FPVActivity extends DemoBaseActivity implements OnClickListener, Su
         }
     }
 
-    public void surfaceChanged(SurfaceHolder holder, int format, int w, int h){
+    @Override
+    public void onSurfaceTextureSizeChanged(SurfaceTexture surface, int width, int height) {
 
     }
 
-    public void surfaceDestroyed(SurfaceHolder holder){
+    @Override
+    public boolean onSurfaceTextureDestroyed(SurfaceTexture surface) {
         //SurfaceValid = false;
 
         if (DJIDrone.getDjiCamera() != null) {
             DJIDrone.getDjiCamera().setReceivedVideoDataCallBack(null);
         }
-        mDjiGLSurfaceView.destroy();
+
+        return false;
+        //mDjiGLSurfaceView.destroy();
+    }
+
+    @Override
+    public void onSurfaceTextureUpdated(SurfaceTexture surface) {
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                if (step_count != 5){
+                    step_count++;
+                    return;
+                }
+                else{
+                    step_count = 0;
+                }
+                Bitmap frame_bmp = mDjiGLSurfaceView.getBitmap();
+                //Mat frame_mat = new Mat();
+                Utils.bitmapToMat(frame_bmp, mRgba);  // frame_bmp is in ARGB format, mRgba is in RBGA format
+
+                //Todo: Do image processing stuff here
+                mRgba.convertTo(mRgba,-1,2,0);  // Increase intensity by 2
+
+                if (mIsColorSelected) {
+                    //Show the error-corrected color
+                    mBlobColorHsv = mDetector.get_new_hsvColor();
+                    mBlobColorRgba = converScalarHsv2Rgba(mBlobColorHsv);
+
+                    //Debug
+                    Log.i(TAG, "mDetector rgba color: (" + mBlobColorRgba.val[0] + ", " + mBlobColorRgba.val[1] +
+                            ", " + mBlobColorRgba.val[2] + ", " + mBlobColorRgba.val[3] + ")");
+                    Log.i(TAG, "mDetector hsv color: (" + mBlobColorHsv.val[0] + ", " + mBlobColorHsv.val[1] +
+                            ", " + mBlobColorHsv.val[2] + ", " + mBlobColorHsv.val[3] + ")");
+
+                    mDetector.process(mRgba);
+                    List<MatOfPoint> contours = mDetector.getContours();
+                    Log.e(TAG, "Contours count: " + contours.size());
+                    Imgproc.drawContours(mRgba, contours, -1, CONTOUR_COLOR, 2);
+
+                    Mat colorLabel = mRgba.submat(4, 68, 4, 68);
+                    colorLabel.setTo(mBlobColorRgba);
+
+                    Mat spectrumLabel = mRgba.submat(4, 4 + mSpectrum.rows(), 70, 70 + mSpectrum.cols());
+                    mSpectrum.copyTo(spectrumLabel);
+                }
+
+
+                Utils.matToBitmap(mRgba, frame_bmp);
+                Canvas canvas = TextureView_Display.lockCanvas();
+                canvas.drawColor(0, android.graphics.PorterDuff.Mode.CLEAR);
+                canvas.drawBitmap(frame_bmp, new Rect(0, 0, frame_bmp.getWidth(), frame_bmp.getHeight()),
+                        new Rect((canvas.getWidth() - frame_bmp.getWidth()) / 2,
+                                (canvas.getHeight() - frame_bmp.getHeight()) / 2,
+                                (canvas.getWidth() - frame_bmp.getWidth()) / 2 + frame_bmp.getWidth(),
+                                (canvas.getHeight() - frame_bmp.getHeight()) / 2 + frame_bmp.getHeight()), null);
+                TextureView_Display.unlockCanvasAndPost(canvas);
+            }
+        }).start();
     }
 
     public void UI_Initialization(){
@@ -918,5 +1029,13 @@ public class FPVActivity extends DemoBaseActivity implements OnClickListener, Su
                 }
             }
         });
+    }
+
+    private Scalar converScalarHsv2Rgba(Scalar hsvColor) {
+        Mat pointMatRgba = new Mat();
+        Mat pointMatHsv = new Mat(1, 1, CvType.CV_8UC3, hsvColor);
+        Imgproc.cvtColor(pointMatHsv, pointMatRgba, Imgproc.COLOR_HSV2RGB_FULL, 4);
+
+        return new Scalar(pointMatRgba.get(0, 0));
     }
 }
