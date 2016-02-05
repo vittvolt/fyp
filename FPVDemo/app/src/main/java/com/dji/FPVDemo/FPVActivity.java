@@ -60,7 +60,9 @@ import android.content.Context;
 
 import org.opencv.android.BaseLoaderCallback;
 import org.opencv.android.LoaderCallbackInterface;
+import org.opencv.android.OpenCVLoader;
 import org.opencv.android.Utils;
+import org.opencv.core.Core;
 import org.opencv.core.CvType;
 import org.opencv.core.Mat;
 import org.opencv.core.MatOfPoint;
@@ -68,7 +70,7 @@ import org.opencv.core.Scalar;
 import org.opencv.core.Size;
 import org.opencv.imgproc.Imgproc;
 
-public class FPVActivity extends DemoBaseActivity implements OnClickListener, TextureView.SurfaceTextureListener{
+public class FPVActivity extends DemoBaseActivity implements View.OnTouchListener, OnClickListener, TextureView.SurfaceTextureListener{
 
     //Color blob detection variables
     private boolean              mIsColorSelected = false;
@@ -80,24 +82,9 @@ public class FPVActivity extends DemoBaseActivity implements OnClickListener, Te
     private Size SPECTRUM_SIZE;
     private Scalar               CONTOUR_COLOR;
 
-    /*static{
+    static{
         System.loadLibrary("opencv_java3");
-    } */
-    private BaseLoaderCallback mLoaderCallback = new BaseLoaderCallback(this) {
-        @Override
-        public void onManagerConnected(int status) {
-            switch (status) {
-                case LoaderCallbackInterface.SUCCESS:
-                {
-                    Log.i(TAG, "OpenCV loaded successfully");
-                } break;
-                default:
-                {
-                    super.onManagerConnected(status);
-                } break;
-            }
-        }
-    };
+    }
 
     private static final String TAG = "FPVActivity";
     private int DroneCode;
@@ -278,6 +265,7 @@ public class FPVActivity extends DemoBaseActivity implements OnClickListener, Te
         //Configure the surface
         mDjiGLSurfaceView = (TextureView)findViewById(R.id.DjiSurfaceView_);
         TextureView_Display = (TextureView) findViewById(R.id.view02);
+        TextureView_Display.setOnTouchListener(this);
         //SDK V2.4 updated
         //mDjiGLSurfaceView.start();
 
@@ -538,7 +526,6 @@ public class FPVActivity extends DemoBaseActivity implements OnClickListener, Te
     @Override
     protected void onResume() {
         // TODO Auto-generated method stub
-
         super.onResume();
     }
 
@@ -1037,5 +1024,65 @@ public class FPVActivity extends DemoBaseActivity implements OnClickListener, Te
         Imgproc.cvtColor(pointMatHsv, pointMatRgba, Imgproc.COLOR_HSV2RGB_FULL, 4);
 
         return new Scalar(pointMatRgba.get(0, 0));
+    }public boolean onTouch(View v, MotionEvent event) {
+        //Todo: to give a notification for debugging
+        viewTimer.setText("Touched!!!");
+
+        //Very important! So that the onFrame function won't change the parameters before this section finishes
+        mIsColorSelected = false;
+
+        int rows = mRgba.rows();        int cols = mRgba.cols();
+
+
+        int xOffset = (TextureView_Display.getWidth() - cols) / 2;
+        int yOffset = (TextureView_Display.getHeight() - rows) / 2;
+
+        int x = (int)event.getX() - xOffset;
+        int y = (int)event.getY() - yOffset;
+
+        Log.i(TAG, "Touch image coordinates: (" + x + ", " + y + ")");
+
+        if ((x < 0) || (y < 0) || (x > cols) || (y > rows)) return false;
+
+        org.opencv.core.Rect touchedRect = new org.opencv.core.Rect();
+
+        touchedRect.x = (x>4) ? x-4 : 0;
+        touchedRect.y = (y>4) ? y-4 : 0;
+
+        touchedRect.width = (x+4 < cols) ? x + 4 - touchedRect.x : cols - touchedRect.x;
+        touchedRect.height = (y+4 < rows) ? y + 4 - touchedRect.y : rows - touchedRect.y;
+
+        Mat touchedRegionRgba = mRgba.submat(touchedRect);
+
+        Mat touchedRegionHsv = new Mat();
+        Imgproc.cvtColor(touchedRegionRgba, touchedRegionHsv, Imgproc.COLOR_RGB2HSV_FULL);
+
+        // Calculate average color of touched region
+        mBlobColorHsv = Core.sumElems(touchedRegionHsv);
+        int pointCount = touchedRect.width*touchedRect.height;
+        for (int i = 0; i < mBlobColorHsv.val.length; i++)
+            mBlobColorHsv.val[i] /= pointCount;
+
+        mBlobColorRgba = converScalarHsv2Rgba(mBlobColorHsv);
+
+        Log.i(TAG, "Touched rgba color: (" + mBlobColorRgba.val[0] + ", " + mBlobColorRgba.val[1] +
+                ", " + mBlobColorRgba.val[2] + ", " + mBlobColorRgba.val[3] + ")");
+
+        mDetector.resetStart();
+        mDetector.setHsvColor(mBlobColorHsv);
+
+        Log.i(TAG, "mDetector hsv color set: (" + mBlobColorHsv.val[0] + ", " + mBlobColorHsv.val[1] +
+                ", " + mBlobColorHsv.val[2] + ", " + mBlobColorHsv.val[3] + ")");
+
+        Imgproc.resize(mDetector.getSpectrum(), mSpectrum, SPECTRUM_SIZE);
+
+        mIsColorSelected = true;
+
+        touchedRegionRgba.release();
+        touchedRegionHsv.release();
+
+        return false;
     }
+
+
 }

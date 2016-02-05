@@ -11,7 +11,7 @@
             <option value="$PROJECT_DIR$" />
             <option value="$PROJECT_DIR$/DJI-SDK-LIB" />
             <option value="$PROJECT_DIR$/app" />
-            <option value="$PROJECT_DIR$/openCVLibrary310" />
+            <option value="$PROJECT_DIR$/openCVLibrary300" />
           </set>
         </option>
       </GradleProjectSettings>

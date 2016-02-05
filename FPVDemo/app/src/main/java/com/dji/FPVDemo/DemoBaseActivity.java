@@ -1,6 +1,12 @@
 package com.dji.FPVDemo;
 
 import android.app.Activity;
+import android.util.Log;
+
+import org.opencv.android.BaseLoaderCallback;
+import org.opencv.android.LoaderCallbackInterface;
+import org.opencv.android.OpenCVLoader;
+
 import dji.midware.data.manager.P3.ServiceManager;
 
 public class DemoBaseActivity extends Activity {
